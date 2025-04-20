@@ -5,7 +5,10 @@ from fasthtml import ft
 db = database("db.sqlite3")
 app = FastHTML(pico=True, picocss=True, hdrs=(picolink, Style(':root {--pico-font-size:90%,--pico-font-family: Pacifico, cursive;}')))
 
-class User: name:str; email:str; year_started:int
+class User: 
+    name:str 
+    email:str
+    year_started:int
 
 users = db.create(User, pk='id')
 # users.insert(name='Kev Doe', email="kev@kevsrobots.com", year_started=2019)

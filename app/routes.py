@@ -46,8 +46,8 @@ def register(user_data: UserCreate, session: Session = Depends(get_session)):
     return {"access_token": token, "token_type": "bearer"}
 
 # Login
-@app.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), 
+@app.post("/loginapi", response_model=Token)
+def loginapi(form_data: OAuth2PasswordRequestForm = Depends(), 
           session: Session = Depends(get_session)) -> dict[str,str]:
     """ Check if user exists and verify password """
 
@@ -103,3 +103,18 @@ def get_likes(url: str, session: Session = Depends(get_session)) -> dict[str,int
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+@app.get("/login")
+def login():
+    """ Login page """
+
+    return Title(
+                 Form(action="/loginapi", method="post", 
+                      Input(name="username", label="Username"),
+                      Input(name="password", label="Password", type="password"),
+                      Button(type="submit", text="Login")))
+
+
+
+
+    
