@@ -1,6 +1,8 @@
 Table users {
   id int [pk]
   name varchar
+  active bool
+  type int // admin, regular user etc
 }
 
 table likes {
@@ -16,5 +18,25 @@ table comments {
 
 }
 
+table projects {
+  id int [pk]
+  title varchar
+  author int
+}
+
+table steps {
+  id int [pk]
+  project_id int
+}
+
+table media {
+  id int [pk]
+  filename varchar
+  project_id int
+}
+
 Ref: "likes"."user_id" < "users"."id"
-ref: "comments"."user_id" < "users"."id"
+Ref: "comments"."user_id" < "users"."id"
+Ref: "projects"."author" < "users"."id"
+Ref: "steps"."project_id" < "projects"."id"
+Ref: "media"."project_id" < "projects"."id"
