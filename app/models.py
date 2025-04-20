@@ -7,12 +7,6 @@ from datetime import datetime
 from sqlmodel import SQLModel, Field, Relationship
 
 class User(SQLModel, table=True):
-    """_summary_
-
-    Args:
-        SQLModel (_type_): _description_
-        table (bool, optional): _description_. Defaults to True.
-    """
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
     hashed_password: str
@@ -22,12 +16,6 @@ class User(SQLModel, table=True):
 
 
 class Like(SQLModel, table=True):
-    """_summary_
-
-    Args:
-        SQLModel (_type_): _description_
-        table (bool, optional): _description_. Defaults to True.
-    """
     id: Optional[int] = Field(default=None, primary_key=True)
     url: str = Field(index=True)
     user_id: int = Field(foreign_key="user.id")
@@ -36,11 +24,7 @@ class Like(SQLModel, table=True):
 
 
 class Comment(SQLModel, table=True):
-    """_summary_
-    Args:
-        SQLModel (_type_): _description_
-        table (bool, optional): _description_. Defaults to True.
-    """
+
     id: Optional[int] = Field(default=None, primary_key=True)
     url: str = Field(index=True)
     content: str
