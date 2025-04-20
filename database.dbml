@@ -1,0 +1,20 @@
+Table users {
+  id int [pk]
+  name varchar
+}
+
+table likes {
+  id int [pk]
+  url varchar
+  user_id int
+}
+
+table comments {
+  id int [pk]
+  comment varchar
+  user_id int
+
+}
+
+Ref: "likes"."user_id" < "users"."id"
+ref: "comments"."user_id" < "users"."id"
