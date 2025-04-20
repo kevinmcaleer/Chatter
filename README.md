@@ -1,1 +1,5 @@
-Chatter - a social plugin for kevsrobots.com
+# Chatter
+
+A social plugin for kevsrobots.com
+
+---
