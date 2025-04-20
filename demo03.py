@@ -24,7 +24,7 @@ def show_users():
     return Main(
         H1("Users"),
         ft.Table(
-        *[ft.Tr(ft.Td(f"{user.name}"), ft.Td(f"{user.email}"), ft.Td(f"{user.year_started}")) for user in users()],
+        *[ft.Row(ft.Cell(f"{user.name}"), ft.Cell(f"{user.email}"), ft.Cell(f"{user.year_started}")) for user in all_users],
     ))
 
 serve()
