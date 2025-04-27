@@ -1,3 +1,5 @@
 sqlmodel
 fastapi
 uv
+alembic
+pydantic
