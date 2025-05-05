@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
 from .models import User, Like, Comment
-from .schemas import UserCreate, UserRead, UserLogin
+from .schemas import UserCreate, UserRead, UserUpdate
 from .database import get_session
 from .utils import decode_access_token, create_access_token, hash_password, verify_password
 from fastapi import Request, Form
@@ -11,12 +11,16 @@ from fastapi.templating import Jinja2Templates
 from fastapi.routing import APIRouter
 from fastapi import Cookie, Form
 from sqlalchemy import func
+from pydantic import EmailStr, ValidationError, BaseModel
 
 router = APIRouter()
 
 templates = Jinja2Templates(directory="app/templates")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+class EmailCheckModel(BaseModel):
+    email: EmailStr
 
 def get_current_user(
     access_token: str = Cookie(default=None),
@@ -118,7 +122,7 @@ def login_user(
         return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
 
     token = create_access_token({"sub": user.username})
-    response = RedirectResponse(url="/auth/protected", status_code=303)
+    response = RedirectResponse(url="/auth/account", status_code=303)
     response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
     return response
 
@@ -130,9 +134,63 @@ def account_page(request: Request, session: Session = Depends(get_session), user
 
     return templates.TemplateResponse("account.html", {
         "request": request,
+        "user" : user,
         "like_count": like_count,
         "comments": comments,
     })
+
+@router.post("/account/update")
+def update_account(
+    request: Request,
+    username: str = Form(...),
+    email: str = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    from sqlalchemy import func
+
+    # ✅ Email format check
+    try:
+        EmailCheckModel(email=email)
+    except ValidationError:
+        like_count = session.exec(select(func.count()).where(Like.user_id == user.id)).one()
+        comments = session.exec(select(Comment).where(Comment.user_id == user.id)).all()
+        return templates.TemplateResponse("account.html", {
+            "request": request,
+            "user": user,
+            "like_count": like_count,
+            "comments": comments,
+            "update_error": "Invalid email format"
+        })
+
+    # Username conflict check
+    existing = session.exec(select(User).where(User.username == username)).first()
+    if existing and existing.id != user.id:
+        like_count = session.exec(select(func.count()).where(Like.user_id == user.id)).one()
+        comments = session.exec(select(Comment).where(Comment.user_id == user.id)).all()
+        return templates.TemplateResponse("account.html", {
+            "request": request,
+            "user": user,
+            "like_count": like_count,
+            "comments": comments,
+            "update_error": "Username already taken"
+        })
+
+    user.username = username
+    user.email = email
+    session.add(user)
+    session.commit()
+
+    like_count = session.exec(select(func.count()).where(Like.user_id == user.id)).one()
+    comments = session.exec(select(Comment).where(Comment.user_id == user.id)).all()
+    return templates.TemplateResponse("account.html", {
+        "request": request,
+        "user": user,
+        "like_count": like_count,
+        "comments": comments,
+        "update_success": "Account updated successfully"
+    })
+
 
 @router.post("/account/change-password")
 def change_password(

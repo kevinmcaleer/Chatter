@@ -3,6 +3,15 @@
 {% block content %}
 <h2>My Account</h2>
 
+<h3>Update Profile</h3>
+<form method="post" action="/auth/account/update">
+  <label>Username: <input type="text" name="username" value="{{ user.username }}" required></label><br>
+  <label>Email: <input type="email" name="email" value="{{ user.email }}" required></label><br>
+  <button type="submit">Update Profile</button>
+</form>
+{% if update_success %}<p style="color:green">{{ update_success }}</p>{% endif %}
+{% if update_error %}<p style="color:red">{{ update_error }}</p>{% endif %}
+
 <h3>Change Password</h3>
 <form method="post" action="/auth/account/change-password">
   <label>Current Password: <input type="password" name="current_password" required></label><br>
