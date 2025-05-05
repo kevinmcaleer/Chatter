@@ -6,12 +6,14 @@ from .schemas import UserCreate, UserRead, UserUpdate
 from .database import get_session
 from .utils import decode_access_token, create_access_token, hash_password, verify_password
 from fastapi import Request, Form
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.routing import APIRouter
 from fastapi import Cookie, Form
 from sqlalchemy import func
 from pydantic import EmailStr, ValidationError, BaseModel
+from fastapi import Header, Cookie
+from typing import Optional
 
 router = APIRouter()
 
@@ -23,20 +25,25 @@ class EmailCheckModel(BaseModel):
     email: EmailStr
 
 def get_current_user(
-    access_token: str = Cookie(default=None),
+    token_cookie: Optional[str] = Cookie(default=None, alias="access_token"),
+    token_header: Optional[str] = Header(default=None, alias="Authorization"),
     session: Session = Depends(get_session)
-) -> User:
-    if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing token",
-        )
+):
+    token = None
 
-    # remove 'Bearer ' prefix if present
-    token = access_token.replace("Bearer ", "")
+    # Use Bearer token from Authorization header if provided
+    if token_header and token_header.startswith("Bearer "):
+        token = token_header[7:]
+    # Fallback to token from HttpOnly cookie
+    elif token_cookie and token_cookie.startswith("Bearer "):
+        token = token_cookie[7:]
+
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing token")
+
     payload = decode_access_token(token)
     if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     user = session.exec(select(User).where(User.username == payload["sub"])).first()
     if not user:
@@ -70,11 +77,30 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = D
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     token = create_access_token({"sub": user.username})
-    return {"access_token": token, "token_type": "bearer"}
 
-@router.get("/logout", response_class=HTMLResponse)
-def logout():
-    response = RedirectResponse(url="/auth/login-page", status_code=303)
+    # Respond with token in JSON AND set in cookie
+    response = JSONResponse(content={"access_token": token, "token_type": "bearer"})
+    response.set_cookie(
+        key="access_token",
+        value=f"Bearer {token}",
+        httponly=True,
+        max_age=1800,
+        samesite="lax"
+    )
+    return response
+
+@router.get("/logout")
+def logout(redirect: bool = True):
+    """
+    Logout the user by deleting the JWT cookie.
+    - If `?redirect=false`, returns JSON
+    - Otherwise, redirects to login page
+    """
+    if redirect:
+        response = RedirectResponse(url="/auth/login-page", status_code=303)
+    else:
+        response = JSONResponse(content={"message": "Logged out successfully"})
+
     response.delete_cookie("access_token")
     return response
 
@@ -251,3 +277,7 @@ def delete_account(
     response = RedirectResponse(url="/auth/register-page", status_code=303)
     response.delete_cookie("access_token")
     return response
+
+@router.get("/me")
+def get_current_user_info(user: User = Depends(get_current_user)):
+    return {"username": user.username}
