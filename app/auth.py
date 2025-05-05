@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request   
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session, select
-from .models import User
+from .models import User, Like, Comment
 from .schemas import UserCreate, UserRead, UserLogin
 from .database import get_session
 from .utils import decode_access_token, create_access_token, hash_password, verify_password
@@ -9,7 +9,8 @@ from fastapi import Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.routing import APIRouter
-from fastapi import Cookie
+from fastapi import Cookie, Form
+from sqlalchemy import func
 
 router = APIRouter()
 
@@ -119,4 +120,76 @@ def login_user(
     token = create_access_token({"sub": user.username})
     response = RedirectResponse(url="/auth/protected", status_code=303)
     response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True)
+    return response
+
+@router.get("/account")
+def account_page(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+    like_count = session.exec(select(func.count()).where(Like.user_id == user.id)).one()
+    
+    comments = session.exec(select(Comment).where(Comment.user_id == user.id)).all()
+
+    return templates.TemplateResponse("account.html", {
+        "request": request,
+        "like_count": like_count,
+        "comments": comments,
+    })
+
+@router.post("/account/change-password")
+def change_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    from .utils import verify_password, hash_password
+
+    if not verify_password(current_password, user.hashed_password):
+        like_count = session.exec(select(Like).where(Like.user_id == user.id)).count()
+        comments = session.exec(select(Comment).where(Comment.user_id == user.id)).all()
+        return templates.TemplateResponse("account.html", {
+            "request": request,
+            "like_count": like_count,
+            "comments": comments,
+            "password_error": "Incorrect current password"
+        })
+
+    user.hashed_password = hash_password(new_password)
+    session.add(user)
+    session.commit()
+
+    like_count = session.exec(select(Like).where(Like.user_id == user.id)).count()
+    comments = session.exec(select(Comment).where(Comment.user_id == user.id)).all()
+    return templates.TemplateResponse("account.html", {
+        "request": request,
+        "like_count": like_count,
+        "comments": comments,
+        "password_success": "Password updated successfully"
+    })
+
+@router.post("/account/delete")
+def delete_account(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    # delete related likes and comments first (to avoid FK constraint)
+    
+    likes = session.exec(select(Like).where(Like.user_id == user.id)).all()
+    for like in likes:
+        session.delete(like)
+
+    comments = session.exec(select(Comment).where(Comment.user_id == user.id)).all()
+    for comment in comments:
+        session.delete(comment)
+
+    session.delete(user)
+    session.commit()
+
+
+    session.exec(select(Comment).where(Comment.user_id == user.id)).delete()
+    session.delete(user)
+    session.commit()
+
+    response = RedirectResponse(url="/auth/register-page", status_code=303)
+    response.delete_cookie("access_token")
     return response
