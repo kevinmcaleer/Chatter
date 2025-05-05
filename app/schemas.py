@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from datetime import datetime
 
 class UserCreate(BaseModel):
     username: str
@@ -13,3 +14,25 @@ class UserRead(BaseModel):
 class UserLogin(BaseModel):
     username: str
     password: str
+
+class LikeCreate(BaseModel):
+    url: str
+
+class CommentCreate(BaseModel):
+    url: str
+    content: str
+
+class CommentRead(BaseModel):
+    id: int
+    url: str
+    content: str
+    created_at: datetime
+    user_id: int
+
+class CommentWithUser(BaseModel):
+    id: int
+    url: str
+    content: str
+    created_at: datetime
+    user_id: int
+    username: str
