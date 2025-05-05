@@ -1,9 +1,15 @@
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
+from dotenv import load_dotenv
+load_dotenv()
+import os
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY environment variable is not set")
 
 # Keep secret key private!
-SECRET_KEY = "supersecretkey123"  # Replace with a real secret!
+# SECRET_KEY = "supersecretkey123"  # Replace with a real secret!
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

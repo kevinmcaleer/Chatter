@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Session, create_engine
 
-sqlite_file_name = "database.db"
+sqlite_file_name = "data/database.db"
 engine = create_engine(f"sqlite:///{sqlite_file_name}", echo=True)
 
 def create_db_and_tables():
