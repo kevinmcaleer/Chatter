@@ -36,3 +36,7 @@ class CommentWithUser(BaseModel):
     created_at: datetime
     user_id: int
     username: str
+
+class UserUpdate(BaseModel):
+    username: str
+    email: EmailStr
