@@ -1,0 +1,14 @@
+- simplicity over complexity
+- clarity over cleverness
+- maintainability over optimization
+- self-documenting code over comments
+- small functions over large functions
+- functions with single responsibility over multi-purpose functions
+- sql should be stored in .sql files over inline sql
+- new functions should have tests over no tests
+- code coverage should be at least 80%
+- progress is updated on github issues on the https://github.com/kevinmcaleer/chatter repository over no updates
+- commit messages should follow the conventional commits specification over freeform messages
+- database changes should be documented in the design/database.dbml file over no documentation
+- database changes should be managed using migrations over manual changes
+- the kevsrobots_cms database should be used on 192.168.2.1:5433 over other databases

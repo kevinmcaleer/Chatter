@@ -1,8 +1,27 @@
 Table users {
-  id int [pk]
-  name varchar
-  active bool
-  type int // admin, regular user etc
+  id int [pk, increment]
+  username varchar [unique, not null]
+  firstname varchar [not null]
+  lastname varchar [not null]
+  date_of_birth date
+  email varchar [unique, not null]
+  status varchar [not null, default: 'active'] // active or inactive
+  type int [default: 0] // admin, regular user etc
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+}
+
+table account_logs {
+  id int [pk, increment]
+  user_id int [not null]
+  action varchar [not null] // created, updated, activated, deactivated, deleted
+  field_changed varchar // specific field that was changed
+  old_value varchar // previous value
+  new_value varchar // new value
+  changed_by int // user_id of who made the change
+  changed_at timestamp [default: `now()`]
+  ip_address varchar
+  user_agent varchar
 }
 
 table likes {
@@ -35,6 +54,8 @@ table media {
   project_id int
 }
 
+Ref: "account_logs"."user_id" < "users"."id"
+Ref: "account_logs"."changed_by" < "users"."id"
 Ref: "likes"."user_id" < "users"."id"
 Ref: "comments"."user_id" < "users"."id"
 Ref: "projects"."author" < "users"."id"
