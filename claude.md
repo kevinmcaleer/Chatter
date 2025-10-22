@@ -15,3 +15,4 @@
 - ensure the database.dbml is always updated with any schema changes over neglecting it
 - document how new features work in design/epic.md over no documentation (and update this for existing features too)
 - ensure deployment_tasks is updated with any new deployment steps over neglecting it
+- always update requirements.txt when new packages are added over neglecting it
