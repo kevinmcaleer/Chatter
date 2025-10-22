@@ -10,8 +10,9 @@ FROM python:3.13-slim as builder
 WORKDIR /app
 
 # Install system dependencies needed for building Python packages
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    libpq-dev \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
@@ -38,7 +39,8 @@ RUN useradd -m -u 1000 chatter && \
     chown -R chatter:chatter /app
 
 # Install runtime dependencies only
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
     postgresql-client \
     curl \
     && rm -rf /var/lib/apt/lists/*

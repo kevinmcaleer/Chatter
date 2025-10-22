@@ -12,7 +12,8 @@ This document tracks all tasks that must be completed before deploying the accou
 - ✅ **Secure cookies** configured for production (HTTPS-only when ENVIRONMENT=production)
 - ✅ **Database connection pooling** implemented with production settings
 - ✅ **Code quality fixes** (duplicate code removed, deprecated endpoints marked)
-- 🔄 **Blocked**: PostgreSQL credentials needed for production database
+- ✅ **PostgreSQL database live** - Connected to 192.168.2.3:5433, migrations applied, admin user created
+- ✅ **Docker deployment ready** - Dockerfile, docker-compose, automatic migrations on startup
 - 📝 **Remaining**: Email verification, account lockout, monitoring setup
 
 ## Status Legend
@@ -295,3 +296,169 @@ This document tracks all tasks that must be completed before deploying the accou
 
 **Last Updated:** 2025-10-22
 **Maintained By:** Development Team
+
+---
+
+## 🐳 Docker Deployment (Issue #31)
+
+### Docker Configuration
+
+- [x] **Create Dockerfile**
+  - ✅ Multi-stage build for optimized image size
+  - ✅ Runs as non-root user (UID 1000)
+  - ✅ Health checks included
+  - ✅ PostgreSQL client for migrations
+  - Location: `Dockerfile`
+
+- [x] **Create docker-compose.yml**
+  - ✅ Application service configuration
+  - ✅ Optional PostgreSQL service
+  - ✅ Optional nginx reverse proxy
+  - ✅ Volume mounts for data and logs
+  - ✅ Health check dependencies
+  - Location: `docker-compose.yml`
+
+- [x] **Create migration system**
+  - ✅ schema_version table for tracking migrations
+  - ✅ Automatic migration on container startup
+  - ✅ Idempotent - safe to restart containers
+  - ✅ Migrations won't re-run if already applied
+  - Location: `docker-entrypoint.sh`, `migrations/versions/schema_version.sql`
+
+- [x] **Create environment configuration**
+  - ✅ .env.docker template with all variables
+  - ✅ .dockerignore for excluding files
+  - ✅ Documentation for external vs internal DB
+  - Location: `.env.docker`, `.dockerignore`
+
+- [x] **Create deployment helpers**
+  - ✅ Makefile with common Docker commands
+  - ✅ Build, run, logs, shell, backup commands
+  - ✅ Production push to local registry (192.168.2.1:5000)
+  - Location: `Makefile`
+
+- [x] **Create documentation**
+  - ✅ Full deployment guide (DOCKER_DEPLOYMENT.md)
+  - ✅ Quick reference (README.Docker.md)
+  - ✅ Troubleshooting section
+  - ✅ Migration system explanation
+
+### Docker Deployment Steps
+
+1. [x] **Build image**
+   ```bash
+   make build
+   # or: docker build -t chatter:latest .
+   ```
+
+2. [ ] **Configure environment**
+   ```bash
+   cp .env.docker .env
+   # Edit .env with production values
+   ```
+
+3. [ ] **Test locally**
+   ```bash
+   make run
+   make logs
+   curl http://localhost:8000/health
+   ```
+
+4. [ ] **Push to registry** (if using 192.168.2.1:5000)
+   ```bash
+   make deploy-prod
+   ```
+
+5. [ ] **Deploy on production server**
+   ```bash
+   docker pull 192.168.2.1:5000/kevsrobots/chatter:latest
+   docker-compose up -d
+   ```
+
+### Migration System Features
+
+The Docker deployment includes an intelligent migration system:
+
+**Features:**
+- Waits for database to be ready (up to 60 seconds)
+- Checks `schema_version` table for applied migrations
+- Runs only missing migrations
+- Records each migration with timestamp
+- Idempotent - safe to restart multiple times
+- No manual migration steps needed
+
+**How it works:**
+1. Container starts → `docker-entrypoint.sh` executes
+2. Waits for database connection
+3. Creates `schema_version` table if needed
+4. Checks which migrations are applied
+5. Runs missing migrations in order
+6. Starts FastAPI application
+
+**Migrations tracked:**
+- `schema_version` - Version tracking table itself
+- `000_create_initial_schema` - All tables (user, accountlog, like, comment)
+
+### Docker Registry Setup
+
+**Using local registry (192.168.2.1:5000):**
+
+```bash
+# On development machine
+make deploy-prod
+
+# On production server
+docker pull 192.168.2.1:5000/kevsrobots/chatter:latest
+docker tag 192.168.2.1:5000/kevsrobots/chatter:latest chatter:latest
+docker-compose up -d
+```
+
+**Without registry (export/import):**
+
+```bash
+# Save image
+docker save chatter:latest | gzip > chatter.tar.gz
+
+# Transfer to server
+scp chatter.tar.gz user@server:/tmp/
+
+# Load on server
+docker load < /tmp/chatter.tar.gz
+docker-compose up -d
+```
+
+### Docker Health Checks
+
+Built-in health monitoring:
+
+```bash
+# Check status
+docker inspect --format='{{.State.Health.Status}}' chatter-app
+
+# Should show: healthy
+```
+
+Health check hits `/health` endpoint every 30 seconds.
+
+### Docker Security
+
+- ✅ Runs as non-root user (chatter, UID 1000)
+- ✅ Multi-stage build (minimal attack surface)
+- ✅ No secrets in image (uses environment variables)
+- ✅ Minimal dependencies
+- ✅ Health checks for monitoring
+- ✅ Read-only filesystem option available
+
+### Next Steps for Docker Deployment
+
+1. [ ] Test Docker build completes successfully
+2. [ ] Test with external PostgreSQL database
+3. [ ] Verify migrations run on first start
+4. [ ] Verify migrations don't re-run on restart
+5. [ ] Set up local registry at 192.168.2.1:5000
+6. [ ] Configure nginx reverse proxy (optional)
+7. [ ] Set up SSL certificates for HTTPS
+8. [ ] Configure automated backups
+9. [ ] Set up monitoring/alerting
+10. [ ] Document rollback procedures
+
