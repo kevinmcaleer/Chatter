@@ -14,3 +14,4 @@
 - the kevsrobots_cms database should be used on 192.168.2.1:5433 over other databases
 - ensure the database.dbml is always updated with any schema changes over neglecting it
 - document how new features work in design/epic.md over no documentation (and update this for existing features too)
+- ensure deployment_tasks is updated with any new deployment steps over neglecting it
