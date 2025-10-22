@@ -3,10 +3,19 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, create_engine, SQLModel
 from sqlmodel.pool import StaticPool
 from datetime import datetime
+import os
+
+# Disable rate limiting for tests
+os.environ["TESTING"] = "true"
+
 from app.main import app
 from app.database import get_session
 from app.models import User, AccountLog
 from app.utils import hash_password
+
+# Test password that meets strength requirements (8+ chars, upper, lower, number)
+TEST_PASSWORD = "TestPass123"
+TEST_PASSWORD_NEW = "NewPass456"
 
 
 @pytest.fixture(name="session")
@@ -29,8 +38,10 @@ def client_fixture(session: Session):
         return session
 
     app.dependency_overrides[get_session] = get_session_override
+
     client = TestClient(app)
     yield client
+
     app.dependency_overrides.clear()
 
 
@@ -42,7 +53,7 @@ def regular_user_fixture(session: Session):
         firstname="Test",
         lastname="User",
         email="test@example.com",
-        hashed_password=hash_password("password123"),
+        hashed_password=hash_password(TEST_PASSWORD),
         status="active",
         type=0
     )
@@ -75,7 +86,7 @@ def auth_headers_fixture(client: TestClient, regular_user: User):
     """Get authentication headers for regular user"""
     response = client.post(
         "/auth/login",
-        data={"username": "testuser", "password": "password123"}
+        data={"username": "testuser", "password": TEST_PASSWORD}
     )
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
@@ -86,7 +97,7 @@ def admin_headers_fixture(client: TestClient, admin_user: User):
     """Get authentication headers for admin user"""
     response = client.post(
         "/auth/login",
-        data={"username": "admin", "password": "admin123"}
+        data={"username": "admin", "password": TEST_PASSWORD}
     )
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
@@ -104,7 +115,7 @@ class TestRegistration:
                 "firstname": "New",
                 "lastname": "User",
                 "email": "newuser@example.com",
-                "password": "password123"
+                "password": TEST_PASSWORD
             }
         )
 
@@ -134,7 +145,7 @@ class TestRegistration:
                 "lastname": "WithDOB",
                 "date_of_birth": "1990-01-01T00:00:00",
                 "email": "withdob@example.com",
-                "password": "password123"
+                "password": TEST_PASSWORD
             }
         )
 
@@ -151,7 +162,7 @@ class TestRegistration:
                 "firstname": "Another",
                 "lastname": "User",
                 "email": "another@example.com",
-                "password": "password123"
+                "password": TEST_PASSWORD
             }
         )
 
@@ -167,7 +178,7 @@ class TestRegistration:
                 "firstname": "Another",
                 "lastname": "User",
                 "email": "test@example.com",
-                "password": "password123"
+                "password": TEST_PASSWORD
             }
         )
 
@@ -183,7 +194,7 @@ class TestRegistration:
                 "firstname": "New",
                 "lastname": "User",
                 "email": "not-an-email",
-                "password": "password123"
+                "password": TEST_PASSWORD
             }
         )
 
@@ -264,7 +275,7 @@ class TestUpdateAccount:
             firstname="Other",
             lastname="User",
             email="other@example.com",
-            hashed_password=hash_password("password"),
+            hashed_password=hash_password(TEST_PASSWORD),
             status="active"
         )
         session.add(other_user)
@@ -323,8 +334,8 @@ class TestPasswordReset:
             "/accounts/reset-password",
             headers=auth_headers,
             json={
-                "old_password": "password123",
-                "new_password": "newpassword123"
+                "old_password": TEST_PASSWORD,
+                "new_password": TEST_PASSWORD_NEW
             }
         )
 
@@ -345,8 +356,8 @@ class TestPasswordReset:
             "/accounts/reset-password",
             headers=auth_headers,
             json={
-                "old_password": "wrongpassword",
-                "new_password": "newpassword123"
+                "old_password": "WrongPass999",
+                "new_password": TEST_PASSWORD_NEW
             }
         )
 
@@ -382,7 +393,7 @@ class TestAdminUpdateStatus:
             firstname="Inactive",
             lastname="User",
             email="inactive@example.com",
-            hashed_password=hash_password("password"),
+            hashed_password=hash_password(TEST_PASSWORD),
             status="inactive"
         )
         session.add(user)
@@ -441,7 +452,7 @@ class TestAdminUpdateStatus:
             firstname="Target",
             lastname="User",
             email="target@example.com",
-            hashed_password=hash_password("password"),
+            hashed_password=hash_password(TEST_PASSWORD),
             status="active"
         )
         session.add(user)
@@ -474,7 +485,7 @@ class TestAdminPasswordReset:
         response = client.post(
             f"/accounts/admin/{regular_user.id}/reset-password",
             headers=admin_headers,
-            json={"new_password": "newadminpassword"}
+            json={"new_password": TEST_PASSWORD_NEW}
         )
 
         assert response.status_code == 200
@@ -495,7 +506,7 @@ class TestAdminPasswordReset:
             firstname="Target",
             lastname="User",
             email="target@example.com",
-            hashed_password=hash_password("password"),
+            hashed_password=hash_password(TEST_PASSWORD),
             status="active"
         )
         session.add(user)
@@ -504,7 +515,7 @@ class TestAdminPasswordReset:
         response = client.post(
             f"/accounts/admin/{user.id}/reset-password",
             headers=auth_headers,
-            json={"new_password": "newpassword"}
+            json={"new_password": TEST_PASSWORD_NEW}
         )
 
         assert response.status_code == 403
@@ -514,7 +525,7 @@ class TestAdminPasswordReset:
         response = client.post(
             "/accounts/admin/99999/reset-password",
             headers=admin_headers,
-            json={"new_password": "newpassword"}
+            json={"new_password": TEST_PASSWORD_NEW}
         )
 
         assert response.status_code == 404
@@ -531,7 +542,7 @@ class TestAdminDeleteAccount:
             firstname="Delete",
             lastname="Me",
             email="delete@example.com",
-            hashed_password=hash_password("password"),
+            hashed_password=hash_password(TEST_PASSWORD),
             status="active"
         )
         session.add(test_user)
@@ -568,7 +579,7 @@ class TestAdminDeleteAccount:
             firstname="Target",
             lastname="User",
             email="target@example.com",
-            hashed_password=hash_password("password"),
+            hashed_password=hash_password(TEST_PASSWORD),
             status="active"
         )
         session.add(user)
@@ -603,7 +614,7 @@ class TestAccountLogging:
                 "firstname": "IP",
                 "lastname": "Test",
                 "email": "iptest@example.com",
-                "password": "password123"
+                "password": TEST_PASSWORD
             }
         )
 
@@ -623,7 +634,7 @@ class TestAccountLogging:
                 "firstname": "UA",
                 "lastname": "Test",
                 "email": "uatest@example.com",
-                "password": "password123"
+                "password": TEST_PASSWORD
             }
         )
 
@@ -646,7 +657,7 @@ class TestLastLoginTracking:
         # Login
         response = client.post(
             "/auth/login",
-            data={"username": "testuser", "password": "password123"}
+            data={"username": "testuser", "password": TEST_PASSWORD}
         )
 
         assert response.status_code == 200
@@ -661,7 +672,7 @@ class TestLastLoginTracking:
         # First login
         response1 = client.post(
             "/auth/login",
-            data={"username": "testuser", "password": "password123"}
+            data={"username": "testuser", "password": TEST_PASSWORD}
         )
         assert response1.status_code == 200
 
@@ -676,7 +687,7 @@ class TestLastLoginTracking:
         # Second login
         response2 = client.post(
             "/auth/login",
-            data={"username": "testuser", "password": "password123"}
+            data={"username": "testuser", "password": TEST_PASSWORD}
         )
         assert response2.status_code == 200
 
@@ -690,7 +701,7 @@ class TestLastLoginTracking:
         # Login to set last_login
         client.post(
             "/auth/login",
-            data={"username": "testuser", "password": "password123"}
+            data={"username": "testuser", "password": TEST_PASSWORD}
         )
 
         # Get account info
@@ -710,7 +721,7 @@ class TestLastLoginTracking:
                 "firstname": "New",
                 "lastname": "User",
                 "email": "new@example.com",
-                "password": "password123"
+                "password": TEST_PASSWORD
             }
         )
 

@@ -7,8 +7,11 @@ from .utils import hash_password, verify_password
 from .auth import get_current_user
 from datetime import datetime
 from typing import Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 async def log_account_change(
     session: Session,
@@ -35,9 +38,10 @@ async def log_account_change(
     session.commit()
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+@limiter.limit("3/hour")
 async def register_account(
-    user_data: UserCreate,
     request: Request,
+    user_data: UserCreate,
     session: Session = Depends(get_session)
 ):
     """Register a new user account"""
@@ -188,9 +192,10 @@ async def update_account(
     return current_user
 
 @router.post("/reset-password")
+@limiter.limit("5/hour")
 async def reset_password(
-    password_reset: PasswordReset,
     request: Request,
+    password_reset: PasswordReset,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
