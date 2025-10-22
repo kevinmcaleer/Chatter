@@ -3,6 +3,8 @@ version: '3.8'
 services:
   # Chatter Application
   app:
+    env_file:
+      - .env.docker
     build:
       context: .
       dockerfile: Dockerfile

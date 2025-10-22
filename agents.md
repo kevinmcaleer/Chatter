@@ -17,3 +17,4 @@
 - ensure deployment_tasks is updated with any new deployment steps over neglecting it
 - always update requirements.txt when new packages are added over neglecting it
 - the local docker repository should be used for building images over docker hub - the prefered name is 192.168.2.1:5000/kevsrobots/chatter:latest over other names
+- never expose the username and password in the repository over exposing them
