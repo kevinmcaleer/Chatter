@@ -1,17 +1,21 @@
-Table users {
+// Database Schema for Chatter Application
+// Updated to match actual SQLModel implementation
+
+Table user {
   id int [pk, increment]
   username varchar [unique, not null]
   firstname varchar [not null]
   lastname varchar [not null]
-  date_of_birth date
+  date_of_birth datetime
   email varchar [unique, not null]
   status varchar [not null, default: 'active'] // active or inactive
-  type int [default: 0] // admin, regular user etc
+  hashed_password varchar [not null]
+  type int [default: 0] // 0 = regular user, 1 = admin
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
 }
 
-table account_logs {
+table accountlog {
   id int [pk, increment]
   user_id int [not null]
   action varchar [not null] // created, updated, activated, deactivated, deleted
@@ -24,40 +28,42 @@ table account_logs {
   user_agent varchar
 }
 
-table likes {
-  id int [pk]
-  url varchar
-  user_id int
+table like {
+  id int [pk, increment]
+  url varchar [not null]
+  user_id int [not null]
 }
 
-table comments {
-  id int [pk]
-  comment varchar
-  user_id int
-
+table comment {
+  id int [pk, increment]
+  url varchar [not null]
+  content varchar [not null]
+  created_at timestamp [default: `now()`]
+  user_id int [not null]
 }
 
 table projects {
-  id int [pk]
+  id int [pk, increment]
   title varchar
   author int
 }
 
 table steps {
-  id int [pk]
+  id int [pk, increment]
   project_id int
 }
 
 table media {
-  id int [pk]
+  id int [pk, increment]
   filename varchar
   project_id int
 }
 
-Ref: "account_logs"."user_id" < "users"."id"
-Ref: "account_logs"."changed_by" < "users"."id"
-Ref: "likes"."user_id" < "users"."id"
-Ref: "comments"."user_id" < "users"."id"
-Ref: "projects"."author" < "users"."id"
-Ref: "steps"."project_id" < "projects"."id"
-Ref: "media"."project_id" < "projects"."id"
+// Relationships
+Ref: accountlog.user_id > user.id [delete: cascade]
+Ref: accountlog.changed_by > user.id [delete: set null]
+Ref: like.user_id > user.id [delete: cascade]
+Ref: comment.user_id > user.id [delete: cascade]
+Ref: projects.author > user.id
+Ref: steps.project_id > projects.id
+Ref: media.project_id > projects.id

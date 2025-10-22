@@ -12,3 +12,4 @@
 - database changes should be documented in the design/database.dbml file over no documentation
 - database changes should be managed using migrations over manual changes
 - the kevsrobots_cms database should be used on 192.168.2.1:5433 over other databases
+- ensure the database.dbml is always updated with any schema changes over neglecting it
