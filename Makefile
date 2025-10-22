@@ -63,6 +63,38 @@ deploy-prod: build tag-prod push-prod ## Build, tag and push to production
 	@echo "Image pushed to $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)"
 	@echo "Deploy on server with: docker pull $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)"
 
+# Multi-architecture builds (for Raspberry Pi support)
+build-multiarch: ## Build for multiple architectures (amd64, arm64)
+	docker buildx create --name multiarch --use || true
+	docker buildx build \
+		--platform linux/amd64,linux/arm64 \
+		-t $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG) \
+		-t $(REGISTRY)/$(IMAGE_NAME):$$(date +%Y%m%d-%H%M%S) \
+		--push \
+		.
+	@echo "Multi-arch image pushed to $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)"
+
+build-arm64: ## Build for ARM64 only (Raspberry Pi 5)
+	docker buildx create --name arm64builder --use || true
+	docker buildx build \
+		--platform linux/arm64 \
+		-t $(IMAGE_NAME):$(IMAGE_TAG)-arm64 \
+		--load \
+		.
+	@echo "ARM64 image built: $(IMAGE_NAME):$(IMAGE_TAG)-arm64"
+
+push-arm64: ## Push ARM64 image to registry
+	docker tag $(IMAGE_NAME):$(IMAGE_TAG)-arm64 $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)-arm64
+	docker push $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)-arm64
+	@echo "ARM64 image pushed to $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)-arm64"
+
+deploy-pi: build-arm64 push-arm64 ## Build and push ARM64 image for Raspberry Pi
+	@echo "Raspberry Pi image ready!"
+	@echo "On your Raspberry Pi, run:"
+	@echo "  docker pull $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)-arm64"
+	@echo "  docker tag $(REGISTRY)/$(IMAGE_NAME):$(IMAGE_TAG)-arm64 $(IMAGE_NAME):$(IMAGE_TAG)"
+	@echo "  docker-compose up -d"
+
 # Development commands
 dev: ## Start in development mode
 	docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
