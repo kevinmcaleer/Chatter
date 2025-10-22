@@ -18,6 +18,7 @@ class User(SQLModel, table=True):
     type: int = Field(default=0)  # admin, regular user etc
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    last_login: Optional[datetime] = None  # Track last login time for engagement metrics
 
     # Optional relationships
     likes: List["Like"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})

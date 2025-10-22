@@ -633,3 +633,87 @@ class TestAccountLogging:
         log = session.query(AccountLog).filter(AccountLog.user_id == user_id).first()
         assert log is not None
         assert log.user_agent is not None
+
+
+class TestLastLoginTracking:
+    """Tests for last_login timestamp tracking (issue #30)"""
+
+    def test_last_login_updated_on_login(self, client: TestClient, regular_user: User, session: Session):
+        """Test that last_login is updated when user logs in"""
+        # Verify initial last_login is None
+        assert regular_user.last_login is None
+
+        # Login
+        response = client.post(
+            "/auth/login",
+            data={"username": "testuser", "password": "password123"}
+        )
+
+        assert response.status_code == 200
+
+        # Refresh user and check last_login was set
+        session.refresh(regular_user)
+        assert regular_user.last_login is not None
+        assert isinstance(regular_user.last_login, datetime)
+
+    def test_last_login_updates_on_subsequent_logins(self, client: TestClient, regular_user: User, session: Session):
+        """Test that last_login updates on each login"""
+        # First login
+        response1 = client.post(
+            "/auth/login",
+            data={"username": "testuser", "password": "password123"}
+        )
+        assert response1.status_code == 200
+
+        session.refresh(regular_user)
+        first_login_time = regular_user.last_login
+        assert first_login_time is not None
+
+        # Wait a moment to ensure timestamp difference
+        import time
+        time.sleep(0.1)
+
+        # Second login
+        response2 = client.post(
+            "/auth/login",
+            data={"username": "testuser", "password": "password123"}
+        )
+        assert response2.status_code == 200
+
+        session.refresh(regular_user)
+        second_login_time = regular_user.last_login
+        assert second_login_time is not None
+        assert second_login_time > first_login_time
+
+    def test_last_login_in_user_response(self, client: TestClient, auth_headers: dict, regular_user: User, session: Session):
+        """Test that last_login is included in user response"""
+        # Login to set last_login
+        client.post(
+            "/auth/login",
+            data={"username": "testuser", "password": "password123"}
+        )
+
+        # Get account info
+        response = client.get("/accounts/me", headers=auth_headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "last_login" in data
+        assert data["last_login"] is not None
+
+    def test_registration_does_not_set_last_login(self, client: TestClient, session: Session):
+        """Test that registration does not set last_login (only login does)"""
+        response = client.post(
+            "/accounts/register",
+            json={
+                "username": "newuser",
+                "firstname": "New",
+                "lastname": "User",
+                "email": "new@example.com",
+                "password": "password123"
+            }
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["last_login"] is None

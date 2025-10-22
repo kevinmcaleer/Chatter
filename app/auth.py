@@ -75,7 +75,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = D
     user = session.exec(select(User).where(User.username == form_data.username)).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
+
+    # Update last_login timestamp for engagement tracking (issue #30)
+    from datetime import datetime
+    user.last_login = datetime.utcnow()
+    session.add(user)
+    session.commit()
+
     token = create_access_token({"sub": user.username})
 
     # Respond with token in JSON AND set in cookie

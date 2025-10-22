@@ -13,7 +13,6 @@ Table user {
   type int [default: 0] // 0 = regular user, 1 = admin
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
-  last_login timestamp // Last login time for engagement tracking
 }
 
 table accountlog {

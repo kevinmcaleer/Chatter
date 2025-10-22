@@ -21,6 +21,7 @@ class UserRead(BaseModel):
     type: int
     created_at: datetime
     updated_at: datetime
+    last_login: Optional[datetime] = None
 
 class UserLogin(BaseModel):
     username: str
