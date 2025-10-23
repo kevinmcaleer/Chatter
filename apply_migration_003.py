@@ -17,12 +17,12 @@ except ImportError:
     import psycopg2
 
 # Load environment variables - try multiple locations
-if os.path.exists('app/.env'):
-    print("Loading from app/.env...")
-    load_dotenv('app/.env')
-elif os.path.exists('.env'):
+if os.path.exists('.env'):
     print("Loading from .env...")
     load_dotenv('.env')
+elif os.path.exists('app/.env'):
+    print("Loading from app/.env...")
+    load_dotenv('app/.env')
 else:
     print("⚠️  No .env file found, trying environment variables...")
 
