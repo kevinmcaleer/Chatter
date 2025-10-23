@@ -17,12 +17,12 @@ except ImportError:
     import psycopg2
 
 # Load environment variables
-load_dotenv('app/.env')
+load_dotenv('.env')
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 if not DATABASE_URL:
-    print("❌ ERROR: DATABASE_URL not found in app/.env")
+    print("❌ ERROR: DATABASE_URL not found in .env")
     sys.exit(1)
 
 def apply_migration():
