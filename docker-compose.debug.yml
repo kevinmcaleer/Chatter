@@ -1,0 +1,33 @@
+# Debug docker-compose configuration
+# Shows actual database connection errors
+# Usage: docker-compose -f docker-compose.debug.yml up
+
+services:
+  app:
+    env_file:
+      - .env
+    image: chatter:latest
+    container_name: chatter-app-debug
+    ports:
+      - "8006:8006"
+    environment:
+      - ENVIRONMENT=production
+      - PORT=8006
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+      - SECRET_KEY=${SECRET_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://kevsrobots.com}
+
+    # Use debug entrypoint to see actual errors
+    entrypoint: ["/app/docker-entrypoint-debug.sh"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8006"]
+
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+
+    networks:
+      - chatter-network
+
+networks:
+  chatter-network:
+    driver: bridge
