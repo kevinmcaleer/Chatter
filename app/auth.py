@@ -70,6 +70,12 @@ def get_current_user(
 
     return user
 
+def get_current_admin(current_user: User = Depends(get_current_user)):
+    """Dependency to check if current user is an admin (type=1)"""
+    if current_user.type != 1:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
 @router.get("/protected")
 def protected_route(current_user: User = Depends(get_current_user)):
     return {"message": f"Welcome, {current_user.username}!"}
@@ -370,3 +376,48 @@ def delete_account(
 @router.get("/me")
 def get_current_user_info(user: User = Depends(get_current_user)):
     return {"username": user.username}
+
+# ============================================
+# Admin Routes
+# ============================================
+
+@router.get("/admin")
+def admin_page(
+    request: Request,
+    session: Session = Depends(get_session),
+    admin: User = Depends(get_current_admin)
+):
+    """Admin dashboard - list all users"""
+    users = session.exec(select(User).order_by(User.created_at.desc())).all()
+    context = get_template_context(request, users=users, current_admin=admin)
+    return templates.TemplateResponse("admin.html", context)
+
+@router.post("/admin/force-password-reset/{user_id}")
+def force_password_reset(
+    user_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    admin: User = Depends(get_current_admin)
+):
+    """Force a user to reset their password on next login"""
+    user = session.exec(select(User).where(User.id == user_id)).first()
+
+    if not user:
+        users = session.exec(select(User).order_by(User.created_at.desc())).all()
+        context = get_template_context(request, users=users, current_admin=admin, error="User not found")
+        return templates.TemplateResponse("admin.html", context)
+
+    # Don't allow forcing password reset on yourself
+    if user.id == admin.id:
+        users = session.exec(select(User).order_by(User.created_at.desc())).all()
+        context = get_template_context(request, users=users, current_admin=admin, error="Cannot force password reset on yourself")
+        return templates.TemplateResponse("admin.html", context)
+
+    user.force_password_reset = True
+    session.add(user)
+    session.commit()
+
+    # Redirect back to admin page with success message
+    users = session.exec(select(User).order_by(User.created_at.desc())).all()
+    context = get_template_context(request, users=users, current_admin=admin, success=f"Password reset required for {user.username}")
+    return templates.TemplateResponse("admin.html", context)
