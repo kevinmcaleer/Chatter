@@ -74,8 +74,8 @@ def get_current_user(
 def protected_route(current_user: User = Depends(get_current_user)):
     return {"message": f"Welcome, {current_user.username}!"}
 
-@router.post("/register", response_model=UserRead, deprecated=True)
-def register(user: UserCreate, session: Session = Depends(get_session)):
+@router.post("/api/register", response_model=UserRead, deprecated=True)
+def register_api(user: UserCreate, session: Session = Depends(get_session)):
     """
     DEPRECATED: Use /accounts/register instead.
     This endpoint is maintained for backwards compatibility but lacks full audit logging.
