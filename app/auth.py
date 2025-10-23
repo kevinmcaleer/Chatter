@@ -242,7 +242,6 @@ def account_page(request: Request, session: Session = Depends(get_session), user
 @router.post("/account/update")
 def update_account(
     request: Request,
-    username: str = Form(...),
     email: str = Form(...),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
@@ -263,9 +262,9 @@ def update_account(
             "update_error": "Invalid email format"
         })
 
-    # Username conflict check
-    existing = session.exec(select(User).where(User.username == username)).first()
-    if existing and existing.id != user.id:
+    # Check if email is already in use by another user
+    existing_email = session.exec(select(User).where(User.email == email)).first()
+    if existing_email and existing_email.id != user.id:
         like_count = session.exec(select(func.count()).where(Like.user_id == user.id)).one()
         comments = session.exec(select(Comment).where(Comment.user_id == user.id)).all()
         return templates.TemplateResponse("account.html", {
@@ -273,10 +272,9 @@ def update_account(
             "user": user,
             "like_count": like_count,
             "comments": comments,
-            "update_error": "Username already taken"
+            "update_error": "Email already in use by another account"
         })
 
-    user.username = username
     user.email = email
     session.add(user)
     session.commit()
@@ -288,7 +286,7 @@ def update_account(
         "user": user,
         "like_count": like_count,
         "comments": comments,
-        "update_success": "Account updated successfully"
+        "update_success": "Email updated successfully"
     })
 
 
