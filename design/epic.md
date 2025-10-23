@@ -56,6 +56,44 @@
 - Logout clears the authentication cookie
 - Logout redirects to login page
 
+### Admin Panel
+**As an** administrator
+**I want to** manage user accounts
+**So that** I can maintain security and help users with account issues
+
+**Acceptance Criteria:**
+- Admin can access admin panel at `/admin` (admin-only access)
+- Admin panel displays list of all users with:
+  - Username
+  - Full name (first and last)
+  - Email address
+  - User type (Admin or User badge)
+  - Account status (Active or Inactive)
+  - Last login timestamp
+  - Account creation date
+  - Password reset indicator (badge when reset is required)
+- Admin can force password reset for any user (except themselves)
+- Forced password reset triggers warning badge on user row
+- Admin actions show success/error messages
+- Admin panel includes back button to account page
+- Admin button is visible on account page for admin users only
+
+### Forced Password Reset
+**As a** user whose password reset was forced by admin
+**I want to** be prompted to change my password on next login
+**So that** I can secure my account with a new password
+
+**Acceptance Criteria:**
+- User is redirected to password reset page after successful login
+- Password reset page explains admin has required password change
+- Form collects new password and confirmation
+- Password must be at least 8 characters
+- Passwords must match
+- Form errors display inline (not as JSON)
+- After successful reset, user is redirected to account page
+- Reset flag is cleared from user account
+- User can proceed normally after password is changed
+
 ## Non-Functional Requirements
 
 ### Error Handling
@@ -100,6 +138,10 @@
 - `POST /account/update` - Update email
 - `POST /account/change-password` - Change password
 - `POST /account/delete` - Delete account
+- `GET /admin` - Show admin panel (admin-only)
+- `POST /admin/force-password-reset/{user_id}` - Force password reset (admin-only)
+- `GET /force-password-reset` - Show forced password reset form
+- `POST /force-password-reset` - Process forced password reset
 
 ### API Routes (for backward compatibility)
 - `POST /api/register` - JSON API endpoint (deprecated)
@@ -110,6 +152,8 @@
 - `register.html` - Registration form
 - `login.html` - Login form
 - `account.html` - Account management page
+- `admin.html` - Admin panel with user management
+- `force_password_reset.html` - Forced password reset form
 
 ## Testing Requirements
 - All endpoints must have unit tests

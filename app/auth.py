@@ -228,6 +228,20 @@ def login_user(
 
     token = create_access_token({"sub": user.username})
 
+    # Check if user needs to reset password
+    if user.force_password_reset:
+        # Set temporary session cookie and redirect to password reset
+        response = RedirectResponse(url="/force-password-reset", status_code=303)
+        response.set_cookie(
+            key="access_token",
+            value=f"Bearer {token}",
+            httponly=True,
+            secure=ENVIRONMENT == "production",
+            samesite="lax",
+            domain=".kevsrobots.com" if ENVIRONMENT == "production" else None
+        )
+        return response
+
     # Redirect to return_to URL if provided, otherwise go to account page
     redirect_url = return_to if return_to else "/account"
     response = RedirectResponse(url=redirect_url, status_code=303)
@@ -421,3 +435,43 @@ def force_password_reset(
     users = session.exec(select(User).order_by(User.created_at.desc())).all()
     context = get_template_context(request, users=users, current_admin=admin, success=f"Password reset required for {user.username}")
     return templates.TemplateResponse("admin.html", context)
+
+@router.get("/force-password-reset")
+def force_password_reset_page(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    """Display password reset page"""
+    context = get_template_context(request)
+    return templates.TemplateResponse("force_password_reset.html", context)
+
+@router.post("/force-password-reset")
+def handle_force_password_reset(
+    request: Request,
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    """Handle forced password reset submission"""
+    from .utils import hash_password
+
+    # Validate passwords match
+    if new_password != confirm_password:
+        context = get_template_context(request, error="Passwords do not match")
+        return templates.TemplateResponse("force_password_reset.html", context)
+
+    # Validate password length
+    if len(new_password) < 8:
+        context = get_template_context(request, error="Password must be at least 8 characters long")
+        return templates.TemplateResponse("force_password_reset.html", context)
+
+    # Update password and clear force_password_reset flag
+    user.hashed_password = hash_password(new_password)
+    user.force_password_reset = False
+    session.add(user)
+    session.commit()
+
+    # Redirect to account page with success message
+    return RedirectResponse(url="/account", status_code=303)
