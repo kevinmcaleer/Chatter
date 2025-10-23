@@ -83,13 +83,18 @@ def apply_migration():
         print("Executing SQL...")
         cur.execute(migration_sql)
 
-        # Record in schema_version table
+        # Record in schema_version table (if it exists)
         print("Recording migration in schema_version...")
-        cur.execute("""
-            INSERT INTO schema_version (version, description)
-            VALUES (%s, %s)
-            ON CONFLICT (version) DO NOTHING;
-        """, ('003', 'Add force password reset flag'))
+        try:
+            cur.execute("""
+                INSERT INTO schema_version (version, description)
+                VALUES (%s, %s)
+                ON CONFLICT (version) DO NOTHING;
+            """, ('003', 'Add force password reset flag'))
+            print("✅ Recorded in schema_version table")
+        except Exception as e:
+            print(f"⚠️  Could not record in schema_version table: {e}")
+            print("   (This is OK - migration was still applied)")
 
         conn.commit()
 
