@@ -104,9 +104,9 @@ def register(user: UserCreate, session: Session = Depends(get_session)):
     session.refresh(new_user)
     return new_user
 
-@router.post("/login")
+@router.post("/api/login")
 @limiter.limit("5/minute")
-def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+def login_api(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
     user = session.exec(select(User).where(User.username == form_data.username)).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")

@@ -70,7 +70,7 @@ def main():
         host = input("Host [192.168.2.3]: ").strip() or "192.168.2.3"
         port = input("Port [5433]: ").strip() or "5433"
         database = input("Database [kevsrobots_cms]: ").strip() or "kevsrobots_cms"
-        username = input("Username [your_db_user]: ").strip() or "your_db_user"
+        username = input("Username: ").strip()
         password = getpass.getpass("Password: ")
 
         print()
