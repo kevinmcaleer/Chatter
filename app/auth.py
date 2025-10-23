@@ -26,6 +26,18 @@ templates = Jinja2Templates(directory="app/templates")
 # Get environment for cookie security
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
+# Template context helper
+from datetime import datetime
+
+def get_template_context(request, **kwargs):
+    """Helper to add common template variables"""
+    context = {
+        "request": request,
+        "current_year": datetime.now().year,
+    }
+    context.update(kwargs)
+    return context
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 class EmailCheckModel(BaseModel):

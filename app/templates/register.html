@@ -3,15 +3,113 @@
 {% block title %}Register{% endblock %}
 
 {% block content %}
-<h2>Register</h2>
-<form method="post">
-  <label>Username: <input type="text" name="username" required></label><br>
-  <label>First Name: <input type="text" name="firstname" required></label><br>
-  <label>Last Name: <input type="text" name="lastname" required></label><br>
-  <label>Email: <input type="email" name="email" required></label><br>
-  <label>Date of Birth (optional): <input type="date" name="date_of_birth"></label><br>
-  <label>Password: <input type="password" name="password" required minlength="8"></label><br>
-  <button type="submit">Register</button>
-</form>
-{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-6 col-md-8">
+      <div class="card shadow-sm">
+        <div class="card-header bg-card-green text-white">
+          <h2 class="mb-0"><i class="fas fa-user-plus me-2"></i>Create Account</h2>
+        </div>
+        <div class="card-body p-4">
+          {% if error %}
+          <div class="alert alert-danger" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
+          </div>
+          {% endif %}
+
+          <form method="post">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="firstname" class="form-label fw-bold">First Name *</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="firstname"
+                  name="firstname"
+                  required
+                  autocomplete="given-name"
+                  placeholder="Enter your first name"
+                >
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label for="lastname" class="form-label fw-bold">Last Name *</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="lastname"
+                  name="lastname"
+                  required
+                  autocomplete="family-name"
+                  placeholder="Enter your last name"
+                >
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label for="username" class="form-label fw-bold">Username *</label>
+              <input
+                type="text"
+                class="form-control"
+                id="username"
+                name="username"
+                required
+                autocomplete="username"
+                placeholder="Choose a username"
+              >
+            </div>
+
+            <div class="mb-3">
+              <label for="email" class="form-label fw-bold">Email Address *</label>
+              <input
+                type="email"
+                class="form-control"
+                id="email"
+                name="email"
+                required
+                autocomplete="email"
+                placeholder="your.email@example.com"
+              >
+            </div>
+
+            <div class="mb-3">
+              <label for="date_of_birth" class="form-label fw-bold">Date of Birth <small class="text-muted">(Optional)</small></label>
+              <input
+                type="date"
+                class="form-control"
+                id="date_of_birth"
+                name="date_of_birth"
+                autocomplete="bday"
+              >
+            </div>
+
+            <div class="mb-3">
+              <label for="password" class="form-label fw-bold">Password *</label>
+              <input
+                type="password"
+                class="form-control"
+                id="password"
+                name="password"
+                required
+                autocomplete="new-password"
+                placeholder="Choose a strong password"
+                minlength="8"
+              >
+              <small class="form-text text-muted">Minimum 8 characters with uppercase, lowercase, and numbers</small>
+            </div>
+
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-user-plus me-2"></i>Create Account
+              </button>
+            </div>
+          </form>
+        </div>
+        <div class="card-footer bg-light text-center">
+          <p class="mb-0">Already have an account? <a href="/auth/login" class="kevred text-decoration-none fw-bold">Login here</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
