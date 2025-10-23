@@ -4,7 +4,7 @@ services:
   # Chatter Application
   app:
     env_file:
-      - .env.docker
+      - .env
     build:
       context: .
       dockerfile: Dockerfile
@@ -12,11 +12,11 @@ services:
     container_name: chatter-app
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8006:8006"
     environment:
       # Application settings
       - ENVIRONMENT=production
-      - PORT=8000
+      - PORT=8006
 
       # Database connection
       - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
