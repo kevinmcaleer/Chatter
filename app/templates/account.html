@@ -1,39 +1,142 @@
 {% extends "base.html" %}
 {% block title %}My Account{% endblock %}
 {% block content %}
-<h2>My Account</h2>
+<div class="container my-5">
+  <div class="row">
+    <div class="col-lg-8 mx-auto">
+      <h1 class="mb-4"><i class="fas fa-user-circle me-2 kevred"></i>My Account</h1>
 
-<h3>Update Profile</h3>
-<form method="post" action="/auth/account/update">
-  <label>Username: <input type="text" name="username" value="{{ user.username }}" required></label><br>
-  <label>Email: <input type="email" name="email" value="{{ user.email }}" required></label><br>
-  <button type="submit">Update Profile</button>
-</form>
-{% if update_success %}<p style="color:green">{{ update_success }}</p>{% endif %}
-{% if update_error %}<p style="color:red">{{ update_error }}</p>{% endif %}
+      <!-- Update Profile -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-card-blue text-white">
+          <h3 class="mb-0"><i class="fas fa-user-edit me-2"></i>Update Profile</h3>
+        </div>
+        <div class="card-body p-4">
+          {% if update_success %}
+          <div class="alert alert-success" role="alert">
+            <i class="fas fa-check-circle me-2"></i>{{ update_success }}
+          </div>
+          {% endif %}
+          {% if update_error %}
+          <div class="alert alert-danger" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>{{ update_error }}
+          </div>
+          {% endif %}
 
-<h3>Change Password</h3>
-<form method="post" action="/auth/account/change-password">
-  <label>Current Password: <input type="password" name="current_password" required></label><br>
-  <label>New Password: <input type="password" name="new_password" required></label><br>
-  <button type="submit">Change Password</button>
-</form>
-{% if password_error %}<p style="color:red">{{ password_error }}</p>{% endif %}
-{% if password_success %}<p style="color:green">{{ password_success }}</p>{% endif %}
+          <form method="post" action="/auth/account/update">
+            <div class="mb-3">
+              <label for="username" class="form-label fw-bold">Username</label>
+              <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
+            </div>
+            <div class="mb-3">
+              <label for="email" class="form-label fw-bold">Email</label>
+              <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}" required>
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save me-2"></i>Update Profile
+            </button>
+          </form>
+        </div>
+      </div>
 
-<h3>Total Likes: {{ like_count }}</h3>
+      <!-- Change Password -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-card-orange text-white">
+          <h3 class="mb-0"><i class="fas fa-key me-2"></i>Change Password</h3>
+        </div>
+        <div class="card-body p-4">
+          {% if password_success %}
+          <div class="alert alert-success" role="alert">
+            <i class="fas fa-check-circle me-2"></i>{{ password_success }}
+          </div>
+          {% endif %}
+          {% if password_error %}
+          <div class="alert alert-danger" role="alert">
+            <i class="fas fa-exclamation-circle me-2"></i>{{ password_error }}
+          </div>
+          {% endif %}
 
-<h3>My Comments</h3>
-<ul>
-  {% for comment in comments %}
-    <li>{{ comment.content }} (on {{ comment.url }})</li>
-  {% endfor %}
-</ul>
+          <form method="post" action="/auth/account/change-password">
+            <div class="mb-3">
+              <label for="current_password" class="form-label fw-bold">Current Password</label>
+              <input type="password" class="form-control" id="current_password" name="current_password" required>
+            </div>
+            <div class="mb-3">
+              <label for="new_password" class="form-label fw-bold">New Password</label>
+              <input type="password" class="form-control" id="new_password" name="new_password" required minlength="8">
+              <small class="form-text text-muted">Minimum 8 characters with uppercase, lowercase, and numbers</small>
+            </div>
+            <button type="submit" class="btn btn-warning">
+              <i class="fas fa-lock me-2"></i>Change Password
+            </button>
+          </form>
+        </div>
+      </div>
 
-<h3>Danger Zone</h3>
-<form method="post" action="/auth/account/delete">
-  <button type="submit" onclick="return confirm('Are you sure you want to delete your account? This cannot be undone.')">
-    Delete My Account
-  </button>
-</form>
+      <!-- Activity Stats -->
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="card shadow-sm">
+            <div class="card-body text-center">
+              <i class="fas fa-heart fa-3x kevred mb-3"></i>
+              <h3 class="mb-0">{{ like_count }}</h3>
+              <p class="text-muted mb-0">Total Likes</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card shadow-sm">
+            <div class="card-body text-center">
+              <i class="fas fa-comments fa-3x text-primary mb-3"></i>
+              <h3 class="mb-0">{{ comments|length }}</h3>
+              <p class="text-muted mb-0">Comments</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Comments -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header bg-card-green text-white">
+          <h3 class="mb-0"><i class="fas fa-comment me-2"></i>My Comments</h3>
+        </div>
+        <div class="card-body p-4">
+          {% if comments %}
+          <div class="list-group">
+            {% for comment in comments %}
+            <div class="list-group-item">
+              <p class="mb-1">{{ comment.content }}</p>
+              <small class="text-muted">
+                <i class="fas fa-link me-1"></i>
+                <a href="{{ comment.url }}" target="_blank" class="text-decoration-none">{{ comment.url }}</a>
+              </small>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-muted mb-0">You haven't made any comments yet.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Danger Zone -->
+      <div class="card shadow-sm border-danger">
+        <div class="card-header bg-danger text-white">
+          <h3 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Danger Zone</h3>
+        </div>
+        <div class="card-body p-4">
+          <p class="text-muted mb-3">
+            Once you delete your account, there is no going back. Please be certain.
+          </p>
+          <form method="post" action="/auth/account/delete">
+            <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete your account? This cannot be undone.')">
+              <i class="fas fa-trash-alt me-2"></i>Delete My Account
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
 {% endblock %}
