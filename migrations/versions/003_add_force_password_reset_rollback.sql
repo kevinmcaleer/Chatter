@@ -10,4 +10,4 @@
 DROP INDEX IF EXISTS idx_user_force_password_reset;
 
 -- Drop column
-ALTER TABLE user DROP COLUMN IF EXISTS force_password_reset;
+ALTER TABLE "user" DROP COLUMN IF EXISTS force_password_reset;
