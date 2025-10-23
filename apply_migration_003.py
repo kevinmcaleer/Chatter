@@ -16,13 +16,26 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "psycopg2-binary"])
     import psycopg2
 
-# Load environment variables
-load_dotenv('.env')
+# Load environment variables - try multiple locations
+if os.path.exists('app/.env'):
+    print("Loading from app/.env...")
+    load_dotenv('app/.env')
+elif os.path.exists('.env'):
+    print("Loading from .env...")
+    load_dotenv('.env')
+else:
+    print("⚠️  No .env file found, trying environment variables...")
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 if not DATABASE_URL:
-    print("❌ ERROR: DATABASE_URL not found in .env")
+    print("❌ ERROR: DATABASE_URL not found")
+    print("   Checked locations:")
+    print("   - app/.env")
+    print("   - .env")
+    print("   - Environment variables")
+    print()
+    print("Please set DATABASE_URL or run from the correct directory")
     sys.exit(1)
 
 def apply_migration():
