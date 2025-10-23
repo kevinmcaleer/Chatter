@@ -135,6 +135,7 @@ declare -a migrations=(
     "migrations/versions/001_add_account_management_with_logging.sql:001:Add account management with logging"
     "migrations/versions/002_add_last_login_tracking.sql:002:Add last login tracking"
     "migrations/versions/003_add_force_password_reset.sql:003:Add force password reset flag"
+    "migrations/versions/004_add_password_reset_code.sql:004:Add password reset code fields"
 )
 
 # Apply each migration if not already applied

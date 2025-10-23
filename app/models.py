@@ -17,6 +17,8 @@ class User(SQLModel, table=True):
     hashed_password: str
     type: int = Field(default=0)  # 0=regular user, 1=admin
     force_password_reset: bool = Field(default=False)  # Force user to reset password on next login
+    password_reset_code: Optional[str] = None  # One-time code for password reset
+    code_expires_at: Optional[datetime] = None  # Expiration time for reset code
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = None  # Track last login time for engagement metrics

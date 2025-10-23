@@ -475,3 +475,109 @@ def handle_force_password_reset(
 
     # Redirect to account page with success message
     return RedirectResponse(url="/account", status_code=303)
+
+@router.post("/admin/generate-reset-code/{user_id}")
+def generate_reset_code(
+    user_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    admin: User = Depends(get_current_admin)
+):
+    """Generate a one-time password reset code for a user"""
+    import secrets
+    import string
+    from datetime import timedelta
+
+    user = session.exec(select(User).where(User.id == user_id)).first()
+
+    if not user:
+        users = session.exec(select(User).order_by(User.created_at.desc())).all()
+        context = get_template_context(request, users=users, current_admin=admin, error="User not found")
+        return templates.TemplateResponse("admin.html", context)
+
+    # Generate a 8-character alphanumeric code
+    alphabet = string.ascii_uppercase + string.digits
+    reset_code = ''.join(secrets.choice(alphabet) for _ in range(8))
+
+    # Set expiration to 24 hours from now
+    from datetime import datetime
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+
+    # Save code and expiration to user
+    user.password_reset_code = reset_code
+    user.code_expires_at = expires_at
+    session.add(user)
+    session.commit()
+
+    # Return success with the code displayed
+    users = session.exec(select(User).order_by(User.created_at.desc())).all()
+    context = get_template_context(
+        request,
+        users=users,
+        current_admin=admin,
+        reset_code=reset_code,
+        reset_code_user=user.username,
+        success=f"Reset code generated for {user.username}"
+    )
+    return templates.TemplateResponse("admin.html", context)
+
+@router.get("/reset-password")
+def reset_password_page(request: Request):
+    """Display password reset page"""
+    context = get_template_context(request)
+    return templates.TemplateResponse("reset_password.html", context)
+
+@router.post("/reset-password")
+def handle_reset_password(
+    request: Request,
+    username: str = Form(...),
+    reset_code: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    session: Session = Depends(get_session)
+):
+    """Handle password reset with code"""
+    from .utils import hash_password
+    from datetime import datetime
+
+    # Validate passwords match
+    if new_password != confirm_password:
+        context = get_template_context(request, error="Passwords do not match", username=username)
+        return templates.TemplateResponse("reset_password.html", context)
+
+    # Validate password length
+    if len(new_password) < 8:
+        context = get_template_context(request, error="Password must be at least 8 characters long", username=username)
+        return templates.TemplateResponse("reset_password.html", context)
+
+    # Find user by username
+    user = session.exec(select(User).where(User.username == username)).first()
+
+    if not user:
+        context = get_template_context(request, error="Invalid username or reset code", username=username)
+        return templates.TemplateResponse("reset_password.html", context)
+
+    # Check if user has a reset code
+    if not user.password_reset_code:
+        context = get_template_context(request, error="No reset code has been generated for this account", username=username)
+        return templates.TemplateResponse("reset_password.html", context)
+
+    # Check if code matches (case-insensitive)
+    if user.password_reset_code.upper() != reset_code.upper():
+        context = get_template_context(request, error="Invalid reset code", username=username)
+        return templates.TemplateResponse("reset_password.html", context)
+
+    # Check if code has expired
+    if user.code_expires_at and user.code_expires_at < datetime.utcnow():
+        context = get_template_context(request, error="Reset code has expired. Please request a new one from an administrator.", username=username)
+        return templates.TemplateResponse("reset_password.html", context)
+
+    # Update password and clear reset code
+    user.hashed_password = hash_password(new_password)
+    user.password_reset_code = None
+    user.code_expires_at = None
+    session.add(user)
+    session.commit()
+
+    # Redirect to login with success message
+    return RedirectResponse(url="/login?reset=success", status_code=303)

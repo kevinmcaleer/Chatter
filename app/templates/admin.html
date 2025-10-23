@@ -22,6 +22,20 @@
       </div>
       {% endif %}
 
+      {% if reset_code %}
+      <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading"><i class="fa-solid fa-key me-2"></i>Password Reset Code Generated</h5>
+        <p class="mb-2"><strong>User:</strong> {{ reset_code_user }}</p>
+        <p class="mb-2"><strong>Code:</strong> <code class="fs-4 text-dark">{{ reset_code }}</code></p>
+        <hr>
+        <p class="mb-0 small">
+          <i class="fa-solid fa-clock me-1"></i>This code expires in 24 hours.
+          <i class="fa-solid fa-exclamation-triangle ms-3 me-1"></i>Give this code to the user securely.
+        </p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endif %}
+
       <div class="card shadow-sm">
         <div class="card-header bg-card-blue text-white">
           <h5 class="mb-0"><i class="fa-solid fa-users me-2"></i>All Users ({{ users|length }})</h5>
@@ -77,12 +91,20 @@
                   </td>
                   <td><small>{{ user.created_at.strftime('%Y-%m-%d') }}</small></td>
                   <td>
-                    <form method="post" action="/admin/force-password-reset/{{ user.id }}" style="display: inline;">
+                    <form method="post" action="/admin/generate-reset-code/{{ user.id }}" style="display: inline;">
+                      <button type="submit"
+                              class="btn btn-sm btn-primary"
+                              title="Generate password reset code"
+                              onclick="return confirm('Generate a reset code for {{ user.username }}?')">
+                        <i class="fa-solid fa-key"></i>
+                      </button>
+                    </form>
+                    <form method="post" action="/admin/force-password-reset/{{ user.id }}" style="display: inline;" class="ms-1">
                       <button type="submit"
                               class="btn btn-sm btn-warning"
-                              title="Force password reset"
+                              title="Force password reset on next login"
                               onclick="return confirm('Force {{ user.username }} to reset their password on next login?')">
-                        <i class="fa-solid fa-key"></i>
+                        <i class="fa-solid fa-lock"></i>
                       </button>
                     </form>
                   </td>
