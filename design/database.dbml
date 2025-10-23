@@ -11,6 +11,7 @@ Table user {
   status varchar [not null, default: 'active'] // active or inactive
   hashed_password varchar [not null]
   type int [default: 0] // 0 = regular user, 1 = admin
+  force_password_reset boolean [default: false] // Admin can force password reset on next login
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
   last_login timestamp // Last login time for engagement tracking

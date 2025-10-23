@@ -132,6 +132,9 @@ echo "========================================"
 declare -a migrations=(
     "migrations/versions/schema_version.sql:schema_version:Create schema version tracking table"
     "migrations/versions/000_create_initial_schema.sql:000:Create initial database schema"
+    "migrations/versions/001_add_account_management_with_logging.sql:001:Add account management with logging"
+    "migrations/versions/002_add_last_login_tracking.sql:002:Add last login tracking"
+    "migrations/versions/003_add_force_password_reset.sql:003:Add force password reset flag"
 )
 
 # Apply each migration if not already applied

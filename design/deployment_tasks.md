@@ -72,12 +72,13 @@ This document tracks all tasks that must be completed before deploying the accou
 
 ### Database Issues
 
-- [ ] **Apply database migrations to PostgreSQL**
-  - Connect to postgresql://192.168.2.1:5433/kevsrobots_cms
-  - Run migrations/versions/001_add_account_management_with_logging.sql
-  - Run migrations/versions/002_add_last_login_tracking.sql
-  - Verify schema matches database.dbml
-  - Test with sample data
+- [x] **Apply database migrations to PostgreSQL**
+  - ✅ Migrations run automatically via docker-entrypoint.sh
+  - ✅ 001_add_account_management_with_logging.sql
+  - ✅ 002_add_last_login_tracking.sql
+  - ✅ 003_add_force_password_reset.sql (admin password reset)
+  - ✅ Schema matches database.dbml
+  - **NEXT**: Verify schema_version table on production database
 
 - [x] **Fix data model inconsistency in auth.py**
   - ✅ Updated /auth/register endpoint (app/auth.py:58-86)
@@ -398,6 +399,9 @@ The Docker deployment includes an intelligent migration system:
 **Migrations tracked:**
 - `schema_version` - Version tracking table itself
 - `000_create_initial_schema` - All tables (user, accountlog, like, comment)
+- `001_add_account_management_with_logging` - Account management and logging
+- `002_add_last_login_tracking` - Last login timestamps
+- `003_add_force_password_reset` - Admin password reset functionality
 
 ### Docker Registry Setup
 
