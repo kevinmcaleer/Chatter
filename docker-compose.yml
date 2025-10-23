@@ -10,6 +10,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      pull: true
+      args:
+        - CACHEBUST=${CACHEBUST:-1}
     image: chatter:latest
     container_name: chatter-app
     restart: unless-stopped

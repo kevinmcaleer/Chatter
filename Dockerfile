@@ -52,6 +52,10 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
+# Bust cache for application code (change CACHEBUST value to force rebuild)
+ARG CACHEBUST=1
+RUN echo "Cache bust: $CACHEBUST"
+
 # Copy application code
 COPY --chown=chatter:chatter . .
 

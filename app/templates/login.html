@@ -18,6 +18,10 @@
           {% endif %}
 
           <form method="post">
+            {% if return_to %}
+            <input type="hidden" name="return_to" value="{{ return_to }}">
+            {% endif %}
+
             <div class="mb-3">
               <label for="username" class="form-label fw-bold">Username</label>
               <input

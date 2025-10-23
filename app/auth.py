@@ -134,7 +134,7 @@ def login_api(request: Request, form_data: OAuth2PasswordRequestForm = Depends()
 @router.get("/logout")
 def logout(redirect: bool = True):
     """
-    Logout the user by deleting the JWT cookie.
+    Logout the user by deleting the JWT cookie and username cookie.
     - If `?redirect=false`, returns JSON
     - Otherwise, redirects to login page
     """
@@ -143,7 +143,9 @@ def logout(redirect: bool = True):
     else:
         response = JSONResponse(content={"message": "Logged out successfully"})
 
-    response.delete_cookie("access_token")
+    # Clear both cookies
+    response.delete_cookie("access_token", domain=".kevsrobots.com" if ENVIRONMENT == "production" else None)
+    response.delete_cookie("username", domain=".kevsrobots.com" if ENVIRONMENT == "production" else None)
     return response
 
 @router.get("/register")
@@ -197,8 +199,9 @@ def register_user(
     return RedirectResponse("/login", status_code=303)
 
 @router.get("/login")
-def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+def login_page(request: Request, return_to: str = None):
+    context = get_template_context(request, return_to=return_to)
+    return templates.TemplateResponse("login.html", context)
 
 
 @router.post("/login")
@@ -206,6 +209,7 @@ def login_user(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    return_to: str = Form(None),
     session: Session = Depends(get_session)
 ):
     from .models import User
@@ -213,17 +217,35 @@ def login_user(
 
     user = session.exec(select(User).where(User.username == username)).first()
     if not user or not verify_password(password, user.hashed_password):
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
+        context = get_template_context(request, error="Invalid credentials", return_to=return_to)
+        return templates.TemplateResponse("login.html", context)
 
     token = create_access_token({"sub": user.username})
-    response = RedirectResponse(url="/account", status_code=303)
+
+    # Redirect to return_to URL if provided, otherwise go to account page
+    redirect_url = return_to if return_to else "/account"
+    response = RedirectResponse(url=redirect_url, status_code=303)
+
+    # Set secure httponly token cookie
     response.set_cookie(
         key="access_token",
         value=f"Bearer {token}",
         httponly=True,
         secure=ENVIRONMENT == "production",
-        samesite="lax"
+        samesite="lax",
+        domain=".kevsrobots.com" if ENVIRONMENT == "production" else None
     )
+
+    # Set username cookie (accessible to JavaScript for display purposes only)
+    response.set_cookie(
+        key="username",
+        value=user.username,
+        httponly=False,  # JavaScript can read this
+        secure=ENVIRONMENT == "production",
+        samesite="lax",
+        domain=".kevsrobots.com" if ENVIRONMENT == "production" else None
+    )
+
     return response
 
 @router.get("/account")
