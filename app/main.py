@@ -33,7 +33,7 @@ app.add_middleware(
 )
 
 app.include_router(lc_router, prefix="/interact")
-app.include_router(auth_router, prefix="/auth")
+app.include_router(auth_router)
 app.include_router(accounts_router, prefix="/accounts")
 
 @app.on_event("startup")

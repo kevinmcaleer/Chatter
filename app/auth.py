@@ -139,19 +139,19 @@ def logout(redirect: bool = True):
     - Otherwise, redirects to login page
     """
     if redirect:
-        response = RedirectResponse(url="/auth/login-page", status_code=303)
+        response = RedirectResponse(url="/login", status_code=303)
     else:
         response = JSONResponse(content={"message": "Logged out successfully"})
 
     response.delete_cookie("access_token")
     return response
 
-@router.get("/register-page")
+@router.get("/register")
 def register_page(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
 
-@router.post("/register-page")
+@router.post("/register")
 def register_user(
     request: Request,
     username: str = Form(...),
@@ -194,14 +194,14 @@ def register_user(
     )
     session.add(user)
     session.commit()
-    return RedirectResponse("/auth/login-page", status_code=303)
+    return RedirectResponse("/login", status_code=303)
 
-@router.get("/login-page")
+@router.get("/login")
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 
-@router.post("/login-page")
+@router.post("/login")
 def login_user(
     request: Request,
     username: str = Form(...),
@@ -216,7 +216,7 @@ def login_user(
         return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
 
     token = create_access_token({"sub": user.username})
-    response = RedirectResponse(url="/auth/account", status_code=303)
+    response = RedirectResponse(url="/account", status_code=303)
     response.set_cookie(
         key="access_token",
         value=f"Bearer {token}",
@@ -343,7 +343,7 @@ def delete_account(
     session.delete(user)
     session.commit()
 
-    response = RedirectResponse(url="/auth/register-page", status_code=303)
+    response = RedirectResponse(url="/register", status_code=303)
     response.delete_cookie("access_token")
     return response
 
