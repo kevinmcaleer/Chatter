@@ -25,25 +25,41 @@ class User(SQLModel, table=True):
 
     # Optional relationships
     likes: List["Like"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    comments: List["Comment"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    comments: List["Comment"] = Relationship(back_populates="user", sa_relationship_kwargs={"foreign_keys": "[Comment.user_id]", "cascade": "all, delete-orphan"})
+    reviewed_comments: List["Comment"] = Relationship(sa_relationship_kwargs={"foreign_keys": "[Comment.reviewed_by]"})
     account_logs: List["AccountLog"] = Relationship(back_populates="user", sa_relationship_kwargs={"foreign_keys": "[AccountLog.user_id]", "cascade": "all, delete-orphan"})
     changed_logs: List["AccountLog"] = Relationship(back_populates="changed_by_user", sa_relationship_kwargs={"foreign_keys": "[AccountLog.changed_by]"})
 
 class Like(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    url: str
-    user_id: int = Field(foreign_key="user.id")
+    url: str = Field(index=True)  # Index for fast lookups by URL
+    user_id: int = Field(foreign_key="user.id", index=True)  # Index for fast lookups by user
+    created_at: datetime = Field(default_factory=datetime.utcnow)  # Track when like was created
 
     user: Optional["User"] = Relationship(back_populates="likes")
 
+    class Config:
+        # Add unique constraint to prevent duplicate likes
+        # User can only like the same URL once
+        unique_together = [("url", "user_id")]
+
 class Comment(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    url: str
+    url: str = Field(index=True)  # Index for fast lookups by URL
     content: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    user_id: int = Field(foreign_key="user.id")
+    user_id: int = Field(foreign_key="user.id", index=True)  # Index for fast lookups by user
 
-    user: Optional["User"] = Relationship(back_populates="comments")
+    # Moderation fields
+    is_flagged: bool = Field(default=False)  # Whether comment has been flagged for review
+    flag_count: int = Field(default=0)  # Number of times comment has been reported
+    flag_reasons: Optional[str] = None  # JSON string of report reasons
+    is_hidden: bool = Field(default=False)  # Admin can hide abusive comments
+    reviewed_at: Optional[datetime] = None  # When admin reviewed the flagged comment
+    reviewed_by: Optional[int] = Field(default=None, foreign_key="user.id")  # Admin who reviewed
+
+    user: Optional["User"] = Relationship(back_populates="comments", sa_relationship_kwargs={"foreign_keys": "[Comment.user_id]"})
+    reviewer: Optional["User"] = Relationship(sa_relationship_kwargs={"foreign_keys": "[Comment.reviewed_by]", "overlaps": "reviewed_comments"})
 
 class AccountLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

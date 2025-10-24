@@ -136,6 +136,9 @@ declare -a migrations=(
     "migrations/versions/002_add_last_login_tracking.sql:002:Add last login tracking"
     "migrations/versions/003_add_force_password_reset.sql:003:Add force password reset flag"
     "migrations/versions/004_add_password_reset_code.sql:004:Add password reset code fields"
+    "migrations/versions/005_enhance_likes_table.sql:005:Enhance likes table with timestamps and indexes"
+    "migrations/versions/006_create_most_liked_view.sql:006:Create materialized view for most liked content"
+    "migrations/versions/007_enhance_comments_table.sql:007:Add comment moderation fields"
 )
 
 # Apply each migration if not already applied

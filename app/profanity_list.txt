@@ -1,0 +1,28 @@
+# Profanity and Banned Words List
+# This file contains words that are not allowed in comments
+# One word per line, case-insensitive matching
+# Lines starting with # are comments and will be ignored
+
+# Common profanity (add more as needed)
+damn
+hell
+crap
+shit
+fuck
+bitch
+asshole
+bastard
+
+# Spam-related terms
+viagra
+cialis
+casino
+forex
+bitcoin
+crypto
+discount
+free-money
+click-here
+buy-now
+
+# Add more words below as needed by administrators

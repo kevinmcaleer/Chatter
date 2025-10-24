@@ -155,7 +155,19 @@ def login_api(request: Request, form_data: OAuth2PasswordRequestForm = Depends()
         httponly=True,
         secure=ENVIRONMENT == "production",  # Only send over HTTPS in production
         max_age=1800,
-        samesite="lax"
+        samesite="lax",
+        domain=".kevsrobots.com" if ENVIRONMENT == "production" else None
+    )
+
+    # Set username cookie (accessible to JavaScript for display purposes only)
+    response.set_cookie(
+        key="username",
+        value=user.username,
+        httponly=False,  # JavaScript can read this
+        secure=ENVIRONMENT == "production",
+        max_age=1800,
+        samesite="lax",
+        domain=".kevsrobots.com" if ENVIRONMENT == "production" else None
     )
     return response
 
@@ -467,6 +479,11 @@ def login_user(
     if not user or not verify_password(password, user.hashed_password):
         context = get_template_context(request, error="Invalid credentials", return_to=return_to)
         return templates.TemplateResponse("login.html", context)
+
+    # Update last_login timestamp for engagement tracking
+    user.last_login = datetime.utcnow()
+    session.add(user)
+    session.commit()
 
     token = create_access_token({"sub": user.username})
 
