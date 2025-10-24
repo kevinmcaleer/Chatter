@@ -130,7 +130,12 @@ def register_api(user: UserCreate, session: Session = Depends(get_session)):
 @router.post("/api/login")
 @limiter.limit("5/minute")
 def login_api(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+    # Try to find user by username first, then by email
     user = session.exec(select(User).where(User.username == form_data.username)).first()
+    if not user:
+        # Try finding by email if username lookup failed
+        user = session.exec(select(User).where(User.email == form_data.username)).first()
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -153,6 +158,216 @@ def login_api(request: Request, form_data: OAuth2PasswordRequestForm = Depends()
         samesite="lax"
     )
     return response
+
+# ============================================
+# JSON API Endpoints for Jekyll Integration
+# ============================================
+
+@router.get("/api/me")
+def get_current_user_api(current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    """Get current user information"""
+    return {
+        "id": current_user.id,
+        "username": current_user.username,
+        "firstname": current_user.firstname,
+        "lastname": current_user.lastname,
+        "email": current_user.email,
+        "status": current_user.status,
+        "type": current_user.type,
+        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+        "last_login": current_user.last_login.isoformat() if current_user.last_login else None
+    }
+
+class EmailUpdate(BaseModel):
+    email: str
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+class PasswordReset(BaseModel):
+    username: str
+    reset_code: str
+    new_password: str
+
+@router.patch("/api/me/email")
+def update_email_api(
+    email_data: EmailUpdate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Update current user's email address"""
+    # Check if email is already taken by another user
+    existing = session.exec(select(User).where(User.email == email_data.email, User.id != current_user.id)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already in use")
+
+    current_user.email = email_data.email
+    session.add(current_user)
+    session.commit()
+    session.refresh(current_user)
+
+    return {"message": "Email updated successfully", "email": current_user.email}
+
+@router.post("/api/me/password")
+def change_password_api(
+    password_data: PasswordChange,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Change current user's password"""
+    from .utils import verify_password, hash_password
+
+    # Verify current password
+    if not verify_password(password_data.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    # Update password
+    current_user.hashed_password = hash_password(password_data.new_password)
+    session.add(current_user)
+    session.commit()
+
+    return {"message": "Password changed successfully"}
+
+@router.delete("/api/me")
+def delete_account_api(current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    """Delete current user's account"""
+    session.delete(current_user)
+    session.commit()
+
+    # Return response with cookies cleared
+    response = JSONResponse(content={"message": "Account deleted successfully"})
+    response.delete_cookie("access_token", domain=".kevsrobots.com" if ENVIRONMENT == "production" else None)
+    response.delete_cookie("username", domain=".kevsrobots.com" if ENVIRONMENT == "production" else None)
+    return response
+
+@router.get("/api/me/activity")
+def get_user_activity_api(current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    """Get current user's activity statistics"""
+    # Count comments
+    comments_count = session.exec(select(func.count()).where(Comment.user_id == current_user.id)).one()
+
+    # Count likes
+    likes_count = session.exec(select(func.count()).where(Like.user_id == current_user.id)).one()
+
+    return {
+        "comments_count": comments_count,
+        "likes_count": likes_count
+    }
+
+@router.post("/api/reset-password")
+def reset_password_api(reset_data: PasswordReset, session: Session = Depends(get_session)):
+    """Reset password using a reset code"""
+    from .utils import hash_password
+    from datetime import datetime
+
+    # Find user by username
+    user = session.exec(select(User).where(User.username == reset_data.username)).first()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid username or reset code")
+
+    # Check if user has a reset code
+    if not user.password_reset_code:
+        raise HTTPException(status_code=400, detail="No reset code has been generated for this account")
+
+    # Check if code matches (case-insensitive)
+    if user.password_reset_code.upper() != reset_data.reset_code.upper():
+        raise HTTPException(status_code=400, detail="Invalid reset code")
+
+    # Check if code has expired
+    if user.code_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Reset code has expired")
+
+    # Validate password length
+    if len(reset_data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+
+    # Update password and clear reset code
+    user.hashed_password = hash_password(reset_data.new_password)
+    user.password_reset_code = None
+    user.code_expires_at = None
+    session.add(user)
+    session.commit()
+
+    return {"message": "Password reset successfully"}
+
+# Admin API Endpoints
+
+@router.get("/api/admin/users")
+def get_all_users_api(
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session)
+):
+    """Get all users (admin only)"""
+    users = session.exec(select(User).order_by(User.created_at.desc())).all()
+
+    return [{
+        "id": user.id,
+        "username": user.username,
+        "firstname": user.firstname,
+        "lastname": user.lastname,
+        "email": user.email,
+        "status": user.status,
+        "type": user.type,
+        "force_password_reset": user.force_password_reset,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "last_login": user.last_login.isoformat() if user.last_login else None
+    } for user in users]
+
+@router.post("/api/admin/users/{user_id}/reset-code")
+def generate_reset_code_api(
+    user_id: int,
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session)
+):
+    """Generate password reset code for a user (admin only)"""
+    import secrets
+    import string
+    from datetime import timedelta, datetime
+
+    user = session.exec(select(User).where(User.id == user_id)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Generate 8-character alphanumeric code
+    alphabet = string.ascii_uppercase + string.digits
+    reset_code = ''.join(secrets.choice(alphabet) for _ in range(8))
+
+    # Set expiration to 24 hours from now
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+
+    user.password_reset_code = reset_code
+    user.code_expires_at = expires_at
+    session.add(user)
+    session.commit()
+
+    return {
+        "message": "Reset code generated successfully",
+        "reset_code": reset_code,
+        "username": user.username,
+        "expires_at": expires_at.isoformat()
+    }
+
+@router.post("/api/admin/users/{user_id}/force-reset")
+def force_password_reset_api(
+    user_id: int,
+    admin: User = Depends(get_current_admin),
+    session: Session = Depends(get_session)
+):
+    """Force user to reset password on next login (admin only)"""
+    user = session.exec(select(User).where(User.id == user_id)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.force_password_reset = True
+    session.add(user)
+    session.commit()
+
+    return {
+        "message": f"Password reset flag set for {user.username}",
+        "username": user.username
+    }
 
 @router.get("/logout")
 def logout(redirect: bool = True):
@@ -243,7 +458,12 @@ def login_user(
     from .models import User
     from .utils import verify_password, create_access_token
 
+    # Try to find user by username first, then by email
     user = session.exec(select(User).where(User.username == username)).first()
+    if not user:
+        # Try finding by email if username lookup failed
+        user = session.exec(select(User).where(User.email == username)).first()
+
     if not user or not verify_password(password, user.hashed_password):
         context = get_template_context(request, error="Invalid credentials", return_to=return_to)
         return templates.TemplateResponse("login.html", context)
