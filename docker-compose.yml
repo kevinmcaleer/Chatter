@@ -6,7 +6,7 @@ services:
   # Chatter Application
   app:
     env_file:
-      - ./app/.env  # Load credentials from app/.env
+      - ./.env  # Load credentials from .env
     build:
       context: .
       dockerfile: Dockerfile
@@ -23,7 +23,7 @@ services:
       - ENVIRONMENT=production
       - PORT=8006
 
-      # DATABASE_URL, SECRET_KEY, and ALLOWED_ORIGINS are loaded from app/.env in the container
+      # DATABASE_URL, SECRET_KEY, and ALLOWED_ORIGINS are loaded from .env
       # Do not override them here to avoid issues with URL-encoded passwords
 
     volumes:
