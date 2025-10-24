@@ -122,7 +122,8 @@ except Exception as e:
 
 # Main execution
 echo "Checking database connection..."
-wait_for_db
+# Skip database wait check - the application handles connection retries
+echo "✅ Skipping pre-flight database check (app handles connection)"
 
 echo ""
 echo "Checking and applying migrations..."
