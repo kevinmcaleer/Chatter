@@ -44,6 +44,7 @@ class EmailCheckModel(BaseModel):
     email: EmailStr
 
 def get_current_user(
+    request: Request,
     token_cookie: Optional[str] = Cookie(default=None, alias="access_token"),
     token_header: Optional[str] = Header(default=None, alias="Authorization"),
     session: Session = Depends(get_session)
@@ -58,14 +59,23 @@ def get_current_user(
         token = token_cookie[7:]
 
     if not token:
+        # For browser requests (HTML), redirect to login
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(url="/login?error=session_expired", status_code=303)
         raise HTTPException(status_code=401, detail="Missing token")
 
     payload = decode_access_token(token)
     if not payload:
+        # For browser requests (HTML), redirect to login
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(url="/login?error=session_expired", status_code=303)
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     user = session.exec(select(User).where(User.username == payload["sub"])).first()
     if not user:
+        # For browser requests (HTML), redirect to login
+        if "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse(url="/login?error=session_expired", status_code=303)
         raise HTTPException(status_code=404, detail="User not found")
 
     return user
@@ -205,8 +215,13 @@ def register_user(
     return RedirectResponse("/login", status_code=303)
 
 @router.get("/login")
-def login_page(request: Request, return_to: str = None):
-    context = get_template_context(request, return_to=return_to)
+def login_page(request: Request, return_to: str = None, error: str = None):
+    # Convert error codes to user-friendly messages
+    error_message = None
+    if error == "session_expired":
+        error_message = "Your session has expired. Please login again."
+
+    context = get_template_context(request, return_to=return_to, error=error_message)
     return templates.TemplateResponse("login.html", context)
 
 
