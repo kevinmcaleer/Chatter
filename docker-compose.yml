@@ -7,13 +7,7 @@ services:
   app:
     env_file:
       - ./.env  # Load credentials from .env
-    build:
-      context: .
-      dockerfile: Dockerfile
-      pull: true
-      args:
-        - CACHEBUST=${CACHEBUST:-1}
-    image: chatter:latest
+    image: 192.168.2.1:5000/kevsrobots/chatter:latest
     container_name: chatter-app
     restart: unless-stopped
     ports:
