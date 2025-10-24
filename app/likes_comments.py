@@ -17,8 +17,11 @@ def toggle_like(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+    # Strip leading slash from URL to normalize storage
+    url = like.url.lstrip('/')
+
     existing_like = session.exec(
-        select(Like).where(Like.user_id == user.id, Like.url == like.url)
+        select(Like).where(Like.user_id == user.id, Like.url == url)
     ).first()
 
     if existing_like:
@@ -26,7 +29,9 @@ def toggle_like(
         session.commit()
         return {"message": "Like removed", "liked": False}
 
-    new_like = Like(url=like.url, user_id=user.id)
+    # Strip leading slash from URL to normalize storage
+    url = like.url.lstrip('/')
+    new_like = Like(url=url, user_id=user.id)
     session.add(new_like)
     session.commit()
     return {"message": "Like added", "liked": True}
@@ -44,7 +49,9 @@ def comment_url(comment: CommentCreate, session: Session = Depends(get_session),
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_message)
 
-    new_comment = Comment(url=comment.url, content=sanitized_content, user_id=user.id)
+    # Strip leading slash from URL to normalize storage
+    url = comment.url.lstrip('/')
+    new_comment = Comment(url=url, content=sanitized_content, user_id=user.id)
     session.add(new_comment)
     session.commit()
     session.refresh(new_comment)
