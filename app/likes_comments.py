@@ -50,7 +50,7 @@ def comment_url(comment: CommentCreate, session: Session = Depends(get_session),
     session.refresh(new_comment)
     return new_comment
 
-@router.get("/comments/{url}", response_model=List[CommentWithUser])
+@router.get("/comments/{url:path}", response_model=List[CommentWithUser])
 def get_comments_with_usernames(url: str, session: Session = Depends(get_session)):
     statement = (
         select(Comment, User)
@@ -74,7 +74,7 @@ def get_comments_with_usernames(url: str, session: Session = Depends(get_session
     ]
     return comments
 
-@router.get("/likes/{url}")
+@router.get("/likes/{url:path}")
 def count_likes(
     url: str,
     session: Session = Depends(get_session)
@@ -93,7 +93,7 @@ def count_likes(
     }
 
 
-@router.get("/user-like-status/{url}")
+@router.get("/user-like-status/{url:path}")
 def get_user_like_status(
     url: str,
     session: Session = Depends(get_session),
