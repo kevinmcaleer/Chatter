@@ -58,24 +58,31 @@ def get_current_user(
     elif token_cookie and token_cookie.startswith("Bearer "):
         token = token_cookie[7:]
 
+    # Check if this is a browser request
+    is_browser = "text/html" in request.headers.get("accept", "")
+
     if not token:
-        # For browser requests (HTML), redirect to login
-        if "text/html" in request.headers.get("accept", ""):
-            return RedirectResponse(url="/login?error=session_expired", status_code=303)
+        if is_browser:
+            # Create a custom exception that our handler will catch
+            exc = HTTPException(status_code=401, detail="Missing token")
+            exc.headers = {"X-Redirect": "/login?error=session_expired"}
+            raise exc
         raise HTTPException(status_code=401, detail="Missing token")
 
     payload = decode_access_token(token)
     if not payload:
-        # For browser requests (HTML), redirect to login
-        if "text/html" in request.headers.get("accept", ""):
-            return RedirectResponse(url="/login?error=session_expired", status_code=303)
+        if is_browser:
+            exc = HTTPException(status_code=401, detail="Invalid or expired token")
+            exc.headers = {"X-Redirect": "/login?error=session_expired"}
+            raise exc
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     user = session.exec(select(User).where(User.username == payload["sub"])).first()
     if not user:
-        # For browser requests (HTML), redirect to login
-        if "text/html" in request.headers.get("accept", ""):
-            return RedirectResponse(url="/login?error=session_expired", status_code=303)
+        if is_browser:
+            exc = HTTPException(status_code=404, detail="User not found")
+            exc.headers = {"X-Redirect": "/login?error=session_expired"}
+            raise exc
         raise HTTPException(status_code=404, detail="User not found")
 
     return user

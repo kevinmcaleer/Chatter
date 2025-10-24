@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -16,6 +17,19 @@ TESTING = os.getenv("TESTING", "false").lower() == "true"
 limiter = Limiter(key_func=get_remote_address, enabled=not TESTING)
 
 app = FastAPI()
+
+# Add custom exception handler for browser redirects
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    # Check if this exception has a redirect header (for browser auth failures)
+    if hasattr(exc, 'headers') and exc.headers and "X-Redirect" in exc.headers:
+        return RedirectResponse(url=exc.headers["X-Redirect"], status_code=303)
+    # Otherwise, return the default JSON error
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
 
 # Add rate limiting exception handler
 app.state.limiter = limiter
