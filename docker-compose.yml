@@ -37,10 +37,6 @@ services:
     networks:
       - chatter-network
 
-    # Override entrypoint to skip database wait check (connection is verified to work)
-    entrypoint: ""
-    command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8006"
-
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
       interval: 30s
