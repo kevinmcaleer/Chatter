@@ -113,3 +113,15 @@ class AdminPasswordReset(BaseModel):
 
 class AccountStatusUpdate(BaseModel):
     status: str  # active or inactive
+
+class PageViewCreate(BaseModel):
+    url: str
+    ip_address: str
+    user_agent: Optional[str] = None
+
+class PageViewStats(BaseModel):
+    url: str
+    view_count: int
+    view_count_formatted: str
+    unique_visitors: int
+    last_viewed_at: Optional[datetime] = None

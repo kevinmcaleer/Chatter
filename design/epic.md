@@ -161,3 +161,213 @@
 - Error handling must be verified for all edge cases
 - Security measures must be tested (password hashing, rate limiting)
 - Code coverage must be at least 80%
+
+---
+
+# Likes, Comments and Page Views - GitHub Issues #13, #37, #42, #52
+
+## Features Overview
+
+### Likes Feature (#37)
+**As a** user
+**I want to** like content I enjoy
+**So that** I can show appreciation and bookmark content
+
+**Acceptance Criteria:**
+- All users can see like counts on content pages
+- Only authenticated users can like/unlike content
+- Like button shows outline heart when not liked, filled red heart when liked
+- Likes are stored per URL and per user (one like per user per URL)
+- Like counts update immediately after like/unlike action
+- Like data is retrieved from materialized view for performance
+
+**API Endpoints:**
+- `POST /interact/like` - Toggle like for authenticated user
+- `GET /interact/likes/{url:path}` - Get like count for any URL
+- `GET /interact/user-like-status/{url:path}` - Check if current user has liked
+- `GET /interact/most-liked` - Get most liked content from materialized view
+- `POST /interact/refresh-most-liked` - Refresh materialized view
+
+### Comments Feature (#42, #35)
+**As a** user
+**I want to** comment on content
+**So that** I can share my thoughts and engage with others
+
+**Acceptance Criteria:**
+- All users can read non-hidden comments
+- Only authenticated users can post comments
+- Comments show username and relative time (e.g., "2h", "3d")
+- Comments cannot contain URLs or links (validated client and server-side)
+- Comments are checked against profanity/banned word list
+- Content is sanitized to prevent XSS attacks
+- Users can report comments as spam/abusive via hamburger menu
+- Admins can hide reported comments
+- Hidden comments don't appear in comment count or listings
+- Comments are sorted newest first
+
+**Moderation Features:**
+- Users can report comments with reason (spam, abusive, inappropriate, other)
+- Flagged comments track flag count and reasons (JSON)
+- Admins can view all flagged comments
+- Admins can hide/unhide comments
+- Admins can clear flags after review
+- All moderation actions track reviewer ID and timestamp
+
+**API Endpoints:**
+- `POST /interact/comment` - Post new comment (authenticated)
+- `GET /interact/comments/{url:path}` - Get comments for URL
+- `POST /interact/comments/{comment_id}/report` - Report comment (authenticated)
+- `GET /interact/comments/flagged` - Get flagged comments (admin-only)
+- `POST /interact/comments/{comment_id}/hide` - Hide comment (admin-only)
+- `POST /interact/comments/{comment_id}/unhide` - Unhide comment (admin-only)
+- `POST /interact/comments/{comment_id}/clear-flags` - Clear flags (admin-only)
+
+### Page View Tracking (#52)
+**As a** site owner
+**I want to** track page views
+**So that** I can understand content popularity and engagement
+
+**Acceptance Criteria:**
+- Every page load logs a view to the database
+- Page views track: URL, IP address, timestamp, user agent
+- View counts are aggregated in materialized view for performance
+- View counts display with formatted numbers:
+  - Under 1,000: exact number (e.g., "234")
+  - 1,000-9,999: one decimal (e.g., "1.2k")
+  - 10,000-999,999: whole number (e.g., "12k")
+  - 1,000,000+: millions format (e.g., "1.5M")
+- View counts show in summary widgets with chart icon
+- View tracking does not require authentication
+- View data includes unique visitor counts
+
+**API Endpoints:**
+- `POST /analytics/page-view` - Log a page view (no auth required)
+- `GET /analytics/page-views/{url:path}` - Get view statistics for URL
+- `POST /analytics/refresh-page-view-counts` - Refresh materialized view
+- `GET /analytics/most-viewed` - Get most viewed pages
+
+### UI Components
+
+#### Like-Comment Component (`like-comment.html`)
+Full-featured component for individual content pages:
+- Heart icon like button (outline/filled states)
+- Like count display
+- Comment textarea with "post your comment" placeholder
+- Post comment button (disabled until text entered)
+- Comment list with username, timestamp, content
+- Hamburger menu on each comment for reporting
+- Success/error message displays
+- Loading spinner for comments
+
+**Usage:**
+```liquid
+{% include like-comment.html %}
+```
+Component automatically detects page URL from data attribute.
+
+#### Like-Comment-Summary Component (`like-comment-summary.html`)
+Lightweight summary widget for cards and galleries:
+- Chart icon with view count (formatted)
+- Heart icon with like count
+- Comment icon with comment count
+- All counts shown even when zero
+- Optional background color support for light text
+
+**Usage:**
+```liquid
+{% assign url_without_slash = page.url | remove_first: "/" %}
+{% include like-comment-summary.html url=url_without_slash %}
+```
+
+### JavaScript Implementation
+
+#### `like-comment.js`
+- Handles full like/comment functionality on content pages
+- Logs page view on load
+- Checks user authentication via username cookie
+- Loads like count and user like status
+- Handles like/unlike toggle with visual feedback
+- Validates comment content client-side (no URLs, no empty)
+- Posts comments and refreshes list
+- Formats relative timestamps
+- Sanitizes HTML output
+
+#### `like-comment-summary.js`
+- Loads data for multiple summary widgets in parallel
+- Fetches view count, like count, and comment count
+- Updates DOM elements with formatted data
+- Gracefully handles errors (shows 0s)
+
+### Database Schema
+
+#### `like` table
+- `id` - Primary key
+- `url` - Content URL (indexed, no leading slash)
+- `user_id` - Foreign key to user (indexed)
+- `created_at` - Timestamp
+- Unique constraint on (url, user_id)
+
+#### `comment` table
+- `id` - Primary key
+- `url` - Content URL (indexed, no leading slash)
+- `content` - Comment text (sanitized)
+- `created_at` - Timestamp
+- `user_id` - Foreign key to user (indexed)
+- `is_flagged` - Boolean for moderation
+- `flag_count` - Number of reports
+- `flag_reasons` - JSON array of report details
+- `is_hidden` - Boolean, hidden by admin
+- `reviewed_at` - Timestamp of review
+- `reviewed_by` - Foreign key to admin user
+
+#### `pageview` table
+- `id` - Primary key
+- `url` - Content URL (indexed, no leading slash)
+- `ip_address` - Visitor IP (indexed)
+- `viewed_at` - Timestamp (indexed)
+- `user_agent` - Browser/device info
+
+#### Materialized Views
+- `most_liked_content` - Aggregated like counts by URL
+- `page_view_counts` - Aggregated view counts by URL with unique visitors
+
+### URL Normalization
+All URLs are normalized before storage:
+- Leading slashes are stripped: `/blog/post.html` → `blog/post.html`
+- Query parameters are captured using FastAPI `{url:path}` parameter
+- Jekyll `page.url` values are filtered: `{{ page.url | remove_first: "/" }}`
+
+### Security & Validation
+
+**Authentication:**
+- JWT tokens in HTTP-only cookies for API authentication
+- Additional username cookie (non-httponly) for JavaScript auth checks
+- Tokens expire after 30 minutes
+
+**Content Validation:**
+- Client-side: Check for URLs in comments before posting
+- Server-side: Validate comment content, check banned words
+- Server-side: Sanitize HTML to prevent XSS attacks
+- Server-side: Enforce maximum content length
+
+**Rate Limiting:**
+- Implemented via SlowAPI on all endpoints
+- Prevents spam and abuse
+
+**IP Address Handling:**
+- Real IP extracted from X-Forwarded-For header (nginx proxy)
+- Falls back to direct connection IP
+
+### Performance Optimizations
+- Materialized views for aggregated counts
+- Refresh views via scheduled tasks or manual trigger
+- Database indexes on frequently queried columns (url, user_id, ip_address, timestamps)
+- Parallel API requests in JavaScript for multiple widgets
+- Lazy loading of comments
+
+### Future Enhancements
+- Comment replies/threading (#43)
+- User ability to edit/delete own comments (#46)
+- @mentions in comments (#45)
+- Admin comment removal (#47)
+- User profiles with activity history (#44)

@@ -76,3 +76,10 @@ class AccountLog(SQLModel, table=True):
     # Relationships
     user: Optional["User"] = Relationship(back_populates="account_logs", sa_relationship_kwargs={"foreign_keys": "[AccountLog.user_id]"})
     changed_by_user: Optional["User"] = Relationship(back_populates="changed_logs", sa_relationship_kwargs={"foreign_keys": "[AccountLog.changed_by]"})
+
+class PageView(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    url: str = Field(index=True)  # Index for fast lookups by URL
+    ip_address: str = Field(index=True)  # Track IP for unique visitor counts
+    viewed_at: datetime = Field(default_factory=datetime.utcnow, index=True)  # Track when page was viewed
+    user_agent: Optional[str] = None  # Track browser/device information
