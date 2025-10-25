@@ -68,31 +68,20 @@ def get_page_view_stats(
     Get page view statistics for a URL
     Returns total views, unique visitors, and formatted count
     Available to all users (no authentication required)
+    Queries live pageview table for real-time accuracy
     """
-    # Query from materialized view for better performance
-    query = text("""
-        SELECT view_count, unique_visitors, last_viewed_at
-        FROM page_view_counts
-        WHERE url = :url
-    """)
+    # Query live pageview table directly for real-time counts
+    view_count = session.exec(
+        select(func.count()).where(PageView.url == url)
+    ).one()
 
-    result = session.execute(query, {"url": url}).first()
+    unique_visitors = session.exec(
+        select(func.count(func.distinct(PageView.ip_address))).where(PageView.url == url)
+    ).one()
 
-    if result:
-        view_count = result[0]
-        unique_visitors = result[1]
-        last_viewed_at = result[2]
-    else:
-        # Fall back to live count if not in materialized view
-        view_count = session.exec(
-            select(func.count()).where(PageView.url == url)
-        ).one()
-        unique_visitors = session.exec(
-            select(func.count(func.distinct(PageView.ip_address))).where(PageView.url == url)
-        ).one()
-        last_viewed_at = session.exec(
-            select(func.max(PageView.viewed_at)).where(PageView.url == url)
-        ).one()
+    last_viewed_at = session.exec(
+        select(func.max(PageView.viewed_at)).where(PageView.url == url)
+    ).one()
 
     return PageViewStats(
         url=url,
@@ -118,12 +107,19 @@ def refresh_page_view_counts(session: Session = Depends(get_session)):
 @router.get("/most-viewed")
 def get_most_viewed(limit: int = 10, session: Session = Depends(get_session)):
     """
-    Get the most viewed pages from the materialized view
+    Get the most viewed pages from live pageview table
     Returns URLs sorted by view count (highest to lowest)
     """
+    # Query live pageview table for real-time most viewed pages
     query = text("""
-        SELECT url, view_count, unique_visitors, last_viewed_at
-        FROM page_view_counts
+        SELECT
+            url,
+            COUNT(*) as view_count,
+            COUNT(DISTINCT ip_address) as unique_visitors,
+            MAX(viewed_at) as last_viewed_at
+        FROM pageview
+        GROUP BY url
+        ORDER BY view_count DESC
         LIMIT :limit
     """)
 
