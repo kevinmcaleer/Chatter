@@ -133,6 +133,11 @@ def get_comments_with_usernames(url: str, session: Session = Depends(get_session
     ]
     return comments
 
+@router.options("/comments/{comment_id}")
+def comment_id_options(comment_id: int):
+    """Handle preflight OPTIONS request for comment edit/delete"""
+    return {}
+
 @router.put("/comments/{comment_id}", response_model=CommentRead)
 def edit_comment(
     comment_id: int,
