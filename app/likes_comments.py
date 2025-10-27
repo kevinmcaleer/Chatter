@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from .models import Like, Comment
-from .schemas import LikeCreate, CommentCreate, CommentRead, CommentWithUser
+from .models import Like, Comment, CommentVersion
+from .schemas import LikeCreate, CommentCreate, CommentRead, CommentWithUser, CommentUpdate, CommentVersionRead
 from .database import get_session
 from .auth import get_current_user
 from .models import User
@@ -10,6 +10,11 @@ from sqlalchemy import func
 from datetime import datetime
 
 router = APIRouter()
+
+@router.options("/like")
+def like_options():
+    """Handle preflight OPTIONS request for like"""
+    return {}
 
 @router.post("/like")
 def toggle_like(
@@ -36,6 +41,10 @@ def toggle_like(
     session.commit()
     return {"message": "Like added", "liked": True}
 
+@router.options("/comment")
+def comment_options():
+    """Handle preflight OPTIONS request for comment"""
+    return {}
 
 @router.post("/comment", response_model=CommentRead)
 def comment_url(comment: CommentCreate, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
@@ -57,6 +66,47 @@ def comment_url(comment: CommentCreate, session: Session = Depends(get_session),
     session.refresh(new_comment)
     return new_comment
 
+@router.get("/test-versions")
+def test_versions():
+    return {"message": "Test endpoint works", "timestamp": datetime.utcnow().isoformat()}
+
+@router.get("/comments/{comment_id:int}/versions")
+def get_comment_versions(
+    comment_id: int,
+    session: Session = Depends(get_session)
+):
+    """
+    Get version history for a comment.
+    Returns all previous versions sorted by edited_at (newest first).
+    """
+    print(f"GET VERSIONS ENDPOINT CALLED with comment_id={comment_id}")
+
+    # Check if comment exists
+    comment = session.exec(select(Comment).where(Comment.id == comment_id)).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # Get all versions
+    versions = session.exec(
+        select(CommentVersion)
+        .where(CommentVersion.comment_id == comment_id)
+        .order_by(CommentVersion.edited_at.desc())
+    ).all()
+
+    print(f"Found {len(versions)} versions")
+
+    # Return as list of dicts
+    result = []
+    for v in versions:
+        result.append({
+            "id": v.id,
+            "comment_id": v.comment_id,
+            "content": v.content,
+            "edited_at": v.edited_at.isoformat() if v.edited_at else None
+        })
+
+    return result
+
 @router.get("/comments/{url:path}", response_model=List[CommentWithUser])
 def get_comments_with_usernames(url: str, session: Session = Depends(get_session)):
     statement = (
@@ -74,12 +124,59 @@ def get_comments_with_usernames(url: str, session: Session = Depends(get_session
             url=comment.url,
             content=comment.content,
             created_at=comment.created_at,
+            edited_at=comment.edited_at,
             user_id=user.id,
             username=user.username,
         )
         for comment, user in results
     ]
     return comments
+
+@router.put("/comments/{comment_id}", response_model=CommentRead)
+def edit_comment(
+    comment_id: int,
+    comment_update: CommentUpdate,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    """
+    Edit a comment - only the original author can edit their comment.
+    Creates a version history entry with the previous content.
+    """
+    from .moderation import validate_comment_content, sanitize_content
+
+    # Get the comment
+    comment = session.exec(select(Comment).where(Comment.id == comment_id)).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # Check if user is the author
+    if comment.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the original author can edit this comment")
+
+    # Sanitize and validate new content
+    sanitized_content = sanitize_content(comment_update.content)
+    is_valid, error_message = validate_comment_content(sanitized_content)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_message)
+
+    # Save current version to history before updating
+    version = CommentVersion(
+        comment_id=comment.id,
+        content=comment.content,
+        edited_at=comment.edited_at or comment.created_at  # Use edited_at if exists, else created_at
+    )
+    session.add(version)
+
+    # Update comment
+    comment.content = sanitized_content
+    comment.edited_at = datetime.utcnow()
+
+    session.add(comment)
+    session.commit()
+    session.refresh(comment)
+
+    return comment
 
 @router.get("/likes/{url:path}")
 def count_likes(

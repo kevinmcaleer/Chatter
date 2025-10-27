@@ -36,15 +36,15 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Configure CORS
-# In production, set ALLOWED_ORIGINS environment variable to your domain(s)
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8001").split(",")
+# Configure CORS - MUST allow origin explicitly
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["https://www.kevsrobots.com", "https://kevsrobots.com", "http://localhost:3000", "http://localhost:8001"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 app.include_router(lc_router, prefix="/interact")

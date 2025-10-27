@@ -60,6 +60,7 @@ class CommentRead(BaseModel):
     url: str
     content: str
     created_at: datetime
+    edited_at: Optional[datetime] = None
     user_id: int
 
 class CommentWithUser(BaseModel):
@@ -67,8 +68,18 @@ class CommentWithUser(BaseModel):
     url: str
     content: str
     created_at: datetime
+    edited_at: Optional[datetime] = None
     user_id: int
     username: str
+
+class CommentUpdate(BaseModel):
+    content: str
+
+class CommentVersionRead(BaseModel):
+    id: int
+    comment_id: int
+    content: str
+    edited_at: datetime
 
 class UserUpdate(BaseModel):
     firstname: Optional[str] = None

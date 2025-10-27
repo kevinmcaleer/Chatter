@@ -48,6 +48,7 @@ class Comment(SQLModel, table=True):
     url: str = Field(index=True)  # Index for fast lookups by URL
     content: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    edited_at: Optional[datetime] = None  # Track when comment was last edited
     user_id: int = Field(foreign_key="user.id", index=True)  # Index for fast lookups by user
 
     # Moderation fields
@@ -60,6 +61,15 @@ class Comment(SQLModel, table=True):
 
     user: Optional["User"] = Relationship(back_populates="comments", sa_relationship_kwargs={"foreign_keys": "[Comment.user_id]"})
     reviewer: Optional["User"] = Relationship(sa_relationship_kwargs={"foreign_keys": "[Comment.reviewed_by]", "overlaps": "reviewed_comments"})
+    versions: List["CommentVersion"] = Relationship(back_populates="comment", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+class CommentVersion(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    comment_id: int = Field(foreign_key="comment.id", index=True)
+    content: str  # Previous version of the comment content
+    edited_at: datetime = Field(default_factory=datetime.utcnow)  # When this version was created
+
+    comment: Optional["Comment"] = Relationship(back_populates="versions")
 
 class AccountLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

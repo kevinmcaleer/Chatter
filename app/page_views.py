@@ -33,6 +33,11 @@ def format_count(count: int) -> str:
             # Show whole number for 10M+
             return f"{int(count/1000000)}M"
 
+@router.options("/page-view")
+def page_view_options():
+    """Handle preflight OPTIONS request for page-view"""
+    return {}
+
 @router.post("/page-view")
 def log_page_view(
     page_view: PageViewCreate,
