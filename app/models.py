@@ -59,6 +59,10 @@ class Comment(SQLModel, table=True):
     reviewed_at: Optional[datetime] = None  # When admin reviewed the flagged comment
     reviewed_by: Optional[int] = Field(default=None, foreign_key="user.id")  # Admin who reviewed
 
+    # Soft delete fields
+    is_removed: bool = Field(default=False)  # User can soft-delete their own comments
+    removed_at: Optional[datetime] = None  # When comment was removed by author
+
     user: Optional["User"] = Relationship(back_populates="comments", sa_relationship_kwargs={"foreign_keys": "[Comment.user_id]"})
     reviewer: Optional["User"] = Relationship(sa_relationship_kwargs={"foreign_keys": "[Comment.reviewed_by]", "overlaps": "reviewed_comments"})
     versions: List["CommentVersion"] = Relationship(back_populates="comment", sa_relationship_kwargs={"cascade": "all, delete-orphan"})

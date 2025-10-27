@@ -114,6 +114,7 @@ def get_comments_with_usernames(url: str, session: Session = Depends(get_session
         .where(Comment.url == url)
         .where(Comment.user_id == User.id)
         .where(Comment.is_hidden == False)  # Only show non-hidden comments
+        .where(Comment.is_removed == False)  # Exclude removed comments
         .order_by(Comment.created_at.desc())
     )
     results = session.exec(statement).all()
@@ -177,6 +178,38 @@ def edit_comment(
     session.refresh(comment)
 
     return comment
+
+@router.delete("/comments/{comment_id}")
+def remove_comment(
+    comment_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    """
+    Soft-delete a comment - only the original author can remove their comment.
+    The comment remains in the database but is marked as removed.
+    """
+    # Get the comment
+    comment = session.exec(select(Comment).where(Comment.id == comment_id)).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # Check if user is the author
+    if comment.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Only the original author can remove this comment")
+
+    # Check if already removed
+    if comment.is_removed:
+        raise HTTPException(status_code=400, detail="Comment already removed")
+
+    # Mark as removed (soft delete)
+    comment.is_removed = True
+    comment.removed_at = datetime.utcnow()
+
+    session.add(comment)
+    session.commit()
+
+    return {"message": "Comment removed successfully"}
 
 @router.get("/likes/{url:path}")
 def count_likes(

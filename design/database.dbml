@@ -51,6 +51,8 @@ table comment {
   is_hidden boolean [default: false] // Admin can hide abusive comments
   reviewed_at timestamp // When admin reviewed the flagged comment
   reviewed_by int // Admin who reviewed the comment
+  is_removed boolean [default: false] // User soft-deleted their own comment
+  removed_at timestamp // When comment was removed by author
 }
 
 table commentversion {
