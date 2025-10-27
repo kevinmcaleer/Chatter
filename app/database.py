@@ -25,10 +25,15 @@ else:
     if ENVIRONMENT == "production":
         engine_kwargs.update({
             "echo": False,  # Disable SQL logging in production
-            "pool_size": 10,  # Number of connections to keep in pool
-            "max_overflow": 20,  # Max connections beyond pool_size
+            "pool_size": 20,  # Number of connections to keep in pool (increased from 10)
+            "max_overflow": 30,  # Max connections beyond pool_size (increased from 20)
             "pool_pre_ping": True,  # Verify connections before using
-            "pool_recycle": 3600,  # Recycle connections after 1 hour
+            "pool_recycle": 1800,  # Recycle connections after 30 minutes (reduced from 1 hour)
+            "pool_timeout": 30,  # Timeout waiting for connection from pool
+            "connect_args": {
+                "connect_timeout": 10,  # Connection timeout in seconds
+                "options": "-c statement_timeout=30000"  # Query timeout: 30 seconds
+            }
         })
         print("   Production database settings enabled")
     else:
