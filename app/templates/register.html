@@ -18,6 +18,9 @@
           {% endif %}
 
           <form method="post">
+            {% if return_to %}
+            <input type="hidden" name="return_to" value="{{ return_to }}">
+            {% endif %}
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label for="firstname" class="form-label fw-bold">First Name *</label>
@@ -106,7 +109,7 @@
           </form>
         </div>
         <div class="card-footer bg-light text-center">
-          <p class="mb-0">Already have an account? <a href="/login" class="kevred text-decoration-none fw-bold">Login here</a></p>
+          <p class="mb-0">Already have an account? <a href="/login{% if return_to %}?return_to={{ return_to }}{% endif %}" class="kevred text-decoration-none fw-bold">Login here</a></p>
         </div>
       </div>
     </div>

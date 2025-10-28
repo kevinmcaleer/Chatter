@@ -399,8 +399,11 @@ def logout(redirect: bool = True):
     return response
 
 @router.get("/register")
-def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+def register_page(request: Request, return_to: str = None):
+    # Sanitize return_to to prevent redirect loops
+    safe_return_to = sanitize_return_to(return_to)
+    context = get_template_context(request, return_to=safe_return_to)
+    return templates.TemplateResponse("register.html", context)
 
 
 @router.post("/register")
@@ -412,19 +415,25 @@ def register_user(
     email: str = Form(...),
     date_of_birth: Optional[str] = Form(None),
     password: str = Form(...),
+    return_to: str = Form(None),
     session: Session = Depends(get_session)
 ):
     from .models import User
     from .utils import hash_password
     from datetime import datetime
 
+    # Sanitize return_to
+    safe_return_to = sanitize_return_to(return_to)
+
     existing = session.exec(select(User).where(User.username == username)).first()
     if existing:
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Username taken"})
+        context = get_template_context(request, error="Username taken", return_to=safe_return_to)
+        return templates.TemplateResponse("register.html", context)
 
     existing_email = session.exec(select(User).where(User.email == email)).first()
     if existing_email:
-        return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"})
+        context = get_template_context(request, error="Email already registered", return_to=safe_return_to)
+        return templates.TemplateResponse("register.html", context)
 
     # Parse date of birth if provided
     dob = None
@@ -432,7 +441,8 @@ def register_user(
         try:
             dob = datetime.strptime(date_of_birth, "%Y-%m-%d")
         except ValueError:
-            return templates.TemplateResponse("register.html", {"request": request, "error": "Invalid date format"})
+            context = get_template_context(request, error="Invalid date format", return_to=safe_return_to)
+            return templates.TemplateResponse("register.html", context)
 
     user = User(
         username=username,
@@ -446,7 +456,49 @@ def register_user(
     )
     session.add(user)
     session.commit()
-    return RedirectResponse("/login", status_code=303)
+
+    # After successful registration, redirect to login with return_to preserved
+    login_url = "/login"
+    if safe_return_to:
+        from urllib.parse import urlencode
+        login_url = f"/login?{urlencode({'return_to': safe_return_to})}"
+
+    return RedirectResponse(login_url, status_code=303)
+
+def sanitize_return_to(return_to: Optional[str]) -> Optional[str]:
+    """
+    Sanitize return_to parameter to prevent redirect loops and open redirects.
+    Only allow relative URLs (no protocol, no external domains).
+    Prevent redirect loops by rejecting return_to that points to /login or /register.
+    """
+    if not return_to:
+        return None
+
+    # Strip whitespace
+    return_to = return_to.strip()
+
+    # Reject if empty after stripping
+    if not return_to:
+        return None
+
+    # Reject absolute URLs (with protocol)
+    if return_to.startswith(('http://', 'https://', '//', 'ftp://', 'file://')):
+        return None
+
+    # Ensure it starts with /
+    if not return_to.startswith('/'):
+        return_to = '/' + return_to
+
+    # Reject if return_to points to login or register pages (prevents loops)
+    if return_to.startswith('/login') or return_to.startswith('/register'):
+        return None
+
+    # Limit length to prevent excessively long URLs
+    if len(return_to) > 500:
+        return None
+
+    return return_to
+
 
 @router.get("/login")
 def login_page(request: Request, return_to: str = None, error: str = None):
@@ -455,7 +507,10 @@ def login_page(request: Request, return_to: str = None, error: str = None):
     if error == "session_expired":
         error_message = "Your session has expired. Please login again."
 
-    context = get_template_context(request, return_to=return_to, error=error_message)
+    # Sanitize return_to to prevent redirect loops
+    safe_return_to = sanitize_return_to(return_to)
+
+    context = get_template_context(request, return_to=safe_return_to, error=error_message)
     return templates.TemplateResponse("login.html", context)
 
 
@@ -501,8 +556,9 @@ def login_user(
         )
         return response
 
-    # Redirect to return_to URL if provided, otherwise go to account page
-    redirect_url = return_to if return_to else "/account"
+    # Redirect to return_to URL if provided (after sanitization), otherwise go to account page
+    safe_return_to = sanitize_return_to(return_to)
+    redirect_url = safe_return_to if safe_return_to else "/account"
     response = RedirectResponse(url=redirect_url, status_code=303)
 
     # Set secure httponly token cookie
