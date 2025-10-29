@@ -100,4 +100,5 @@ Ref: media.project_id > projects.id
 
 // Notes
 // pageview table tracks all page visits for analytics
-// Materialized view page_view_counts aggregates view counts by URL for performance
+// Materialized view page_view_counts aggregates view counts by URL for performance (requires manual refresh)
+// View top_viewed_pages shows the top 10 most viewed pages ordered by view count (queries pageview table directly for real-time data)
