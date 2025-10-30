@@ -32,14 +32,18 @@ def toggle_like(
     if existing_like:
         session.delete(existing_like)
         session.commit()
-        return {"message": "Like removed", "liked": False}
+        # Get updated like count after removal
+        like_count = session.exec(select(func.count(Like.id)).where(Like.url == url)).one()
+        return {"message": "Like removed", "liked": False, "like_count": like_count}
 
     # Strip leading slash from URL to normalize storage
     url = like.url.lstrip('/')
     new_like = Like(url=url, user_id=user.id)
     session.add(new_like)
     session.commit()
-    return {"message": "Like added", "liked": True}
+    # Get updated like count after addition
+    like_count = session.exec(select(func.count(Like.id)).where(Like.url == url)).one()
+    return {"message": "Like added", "liked": True, "like_count": like_count}
 
 @router.options("/comment")
 def comment_options():
@@ -235,6 +239,41 @@ def count_likes(
     }
 
 
+@router.options("/like-status/{url:path}")
+def like_status_options(url: str):
+    """Handle preflight OPTIONS request for like status"""
+    return {}
+
+
+@router.get("/like-status/{url:path}")
+def get_combined_like_status(
+    url: str,
+    session: Session = Depends(get_session),
+    user: Optional[User] = Depends(get_current_user)
+):
+    """
+    Get like count and user like status in a single call.
+    If user is not authenticated, only returns like count.
+    This reduces 2 API calls to 1 on page load.
+    """
+    # Get total like count
+    like_count = session.exec(select(func.count()).where(Like.url == url)).one()
+
+    # Check if user has liked (only if authenticated)
+    user_has_liked = False
+    if user:
+        existing_like = session.exec(
+            select(Like).where(Like.user_id == user.id, Like.url == url)
+        ).first()
+        user_has_liked = existing_like is not None
+
+    return {
+        "url": url,
+        "like_count": like_count,
+        "user_has_liked": user_has_liked
+    }
+
+
 @router.get("/user-like-status/{url:path}")
 def get_user_like_status(
     url: str,
@@ -243,6 +282,7 @@ def get_user_like_status(
 ):
     """
     Check if the current user has liked a specific URL.
+    DEPRECATED: Use /like-status/{url} instead for better performance.
     Returns the like_id if liked, null if not.
     Requires authentication.
     """
