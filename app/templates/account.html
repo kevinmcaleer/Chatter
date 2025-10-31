@@ -223,6 +223,10 @@ async function uploadProfilePicture() {
       statusDiv.innerHTML = '<div class="alert alert-success alert-sm">Picture uploaded successfully!</div>';
       // Reload page to show new picture
       setTimeout(() => window.location.reload(), 1000);
+    } else if (response.status === 401) {
+      // Authentication error - redirect to login
+      window.location.href = '/login?return_to=/account';
+      return;
     } else {
       statusDiv.innerHTML = `<div class="alert alert-danger alert-sm">${data.detail || 'Upload failed'}</div>`;
     }
@@ -252,6 +256,10 @@ async function deleteProfilePicture() {
       statusDiv.innerHTML = '<div class="alert alert-success alert-sm">Picture removed successfully!</div>';
       // Reload page to show default avatar
       setTimeout(() => window.location.reload(), 1000);
+    } else if (response.status === 401) {
+      // Authentication error - redirect to login
+      window.location.href = '/login?return_to=/account';
+      return;
     } else {
       statusDiv.innerHTML = `<div class="alert alert-danger alert-sm">${data.detail || 'Delete failed'}</div>`;
     }
