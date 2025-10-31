@@ -613,14 +613,8 @@ def login_user(
 
     return response
 
-@router.get("/profile/{username}")
-def view_profile_page(username: str, request: Request):
-    """
-    Display a user's profile page (template only - data loaded via JavaScript).
-    Uses the same template as www.kevsrobots.com/profile for consistency.
-    """
-    context = get_template_context(request)
-    return templates.TemplateResponse("profile.html", context)
+# Removed - /profile/{username} endpoint is now handled by profile.py router
+# which returns JSON for the Jekyll site to consume
 
 @router.get("/account")
 def account_page(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
