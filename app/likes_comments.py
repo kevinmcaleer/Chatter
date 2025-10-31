@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 from .models import Like, Comment, CommentVersion
 from .schemas import LikeCreate, CommentCreate, CommentRead, CommentWithUser, CommentUpdate, CommentVersionRead
 from .database import get_session
-from .auth import get_current_user
+from .auth import get_current_user, get_optional_user
 from .models import User
 from typing import List, Optional
 from sqlalchemy import func
@@ -250,12 +250,13 @@ def like_status_options(url: str):
 def get_combined_like_status(
     url: str,
     session: Session = Depends(get_session),
-    user: Optional[User] = Depends(get_current_user)
+    user: Optional[User] = Depends(get_optional_user)
 ):
     """
     Get like count and user like status in a single call.
     If user is not authenticated, only returns like count.
     This reduces 2 API calls to 1 on page load.
+    Works for both authenticated and anonymous users.
     """
     # Get total like count
     like_count = session.exec(select(func.count()).where(Like.url == url)).one()
