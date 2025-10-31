@@ -207,7 +207,7 @@ def login_api(request: Request, form_data: OAuth2PasswordRequestForm = Depends()
 
 @router.get("/api/me")
 def get_current_user_api(current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
-    """Get current user information"""
+    """Get current user information including profile picture, location, and bio"""
     return {
         "id": current_user.id,
         "username": current_user.username,
@@ -216,6 +216,9 @@ def get_current_user_api(current_user: User = Depends(get_current_user), session
         "email": current_user.email,
         "status": current_user.status,
         "type": current_user.type,
+        "profile_picture": current_user.profile_picture,
+        "location": current_user.location,
+        "bio": current_user.bio,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
         "last_login": current_user.last_login.isoformat() if current_user.last_login else None
     }
