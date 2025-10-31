@@ -614,48 +614,12 @@ def login_user(
     return response
 
 @router.get("/profile/{username}")
-def view_profile_page(
-    username: str,
-    request: Request,
-    session: Session = Depends(get_session),
-    current_user: Optional[User] = Depends(get_optional_user)
-):
-    """Display a user's profile page"""
-    # Get user by username
-    user = session.exec(select(User).where(User.username == username)).first()
-    if not user or user.status != "active":
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Get comment count
-    comment_count = session.exec(
-        select(func.count(Comment.id))
-        .where(Comment.user_id == user.id)
-        .where(Comment.is_removed == False)
-        .where(Comment.is_hidden == False)
-    ).one()
-
-    # Build profile picture URL
-    profile_picture_url = None
-    if user.profile_picture:
-        profile_picture_url = f"https://chatter.kevsrobots.com/profile_pictures/{user.profile_picture}"
-
-    # Check if viewing own profile
-    is_own_profile = current_user is not None and current_user.id == user.id
-
-    context = get_template_context(
-        request,
-        profile={
-            "username": user.username,
-            "firstname": user.firstname,
-            "lastname": user.lastname,
-            "location": user.location,
-            "bio": user.bio,
-            "profile_picture_url": profile_picture_url,
-            "created_at": user.created_at,
-            "comment_count": comment_count,
-            "is_own_profile": is_own_profile
-        }
-    )
+def view_profile_page(username: str, request: Request):
+    """
+    Display a user's profile page (template only - data loaded via JavaScript).
+    Uses the same template as www.kevsrobots.com/profile for consistency.
+    """
+    context = get_template_context(request)
     return templates.TemplateResponse("profile.html", context)
 
 @router.get("/account")

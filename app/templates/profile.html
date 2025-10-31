@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ profile.username }}'s Profile{% endblock %}
+{% block title %}User Profile{% endblock %}
 {% block content %}
 <div class="container my-5">
   <div class="row">
@@ -10,41 +10,27 @@
         <div class="card-body p-4">
           <div class="row">
             <div class="col-md-3 text-center mb-3 mb-md-0">
-              {% if profile.profile_picture_url %}
-              <img src="{{ profile.profile_picture_url }}" alt="{{ profile.username }}" class="rounded-circle img-fluid" style="max-width: 150px; max-height: 150px; object-fit: cover;">
-              {% else %}
-              <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center text-white" style="width: 150px; height: 150px; font-size: 3rem;">
-                {{ profile.username[0]|upper }}
-              </div>
-              {% endif %}
+              <div id="profile-avatar"></div>
             </div>
             <div class="col-md-9">
               <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
-                  <h2 class="mb-1">{{ profile.firstname }} {{ profile.lastname }}</h2>
-                  <p class="text-muted mb-0">@{{ profile.username }}</p>
+                  <h2 class="mb-1" id="profile-name"></h2>
+                  <p class="text-muted mb-0" id="profile-username"></p>
                 </div>
-                {% if profile.is_own_profile %}
-                <a href="/account" class="btn btn-primary btn-sm">
-                  <i class="fas fa-edit me-1"></i>Edit Profile
-                </a>
-                {% endif %}
+                <div id="edit-profile-button"></div>
               </div>
 
-              {% if profile.location %}
-              <p class="mb-2">
+              <div id="profile-location" class="mb-2" style="display: none;">
                 <i class="fas fa-map-marker-alt me-2 text-muted"></i>
-                <span>{{ profile.location }}</span>
-              </p>
-              {% endif %}
+                <span id="location-text"></span>
+              </div>
 
-              {% if profile.bio %}
-              <p class="mb-3">{{ profile.bio }}</p>
-              {% endif %}
+              <p id="profile-bio" class="mb-3" style="display: none;"></p>
 
               <p class="text-muted mb-0">
                 <i class="fas fa-calendar me-2"></i>
-                <small>Joined {{ profile.created_at.strftime('%B %Y') }}</small>
+                <small id="profile-joined"></small>
               </p>
             </div>
           </div>
@@ -59,7 +45,7 @@
               <div class="row">
                 <div class="col">
                   <i class="fas fa-comments fa-2x text-primary mb-2"></i>
-                  <h4 class="mb-0">{{ profile.comment_count }}</h4>
+                  <h4 class="mb-0" id="comment-count">0</h4>
                   <p class="text-muted mb-0">Comments</p>
                 </div>
               </div>
@@ -89,9 +75,79 @@
 </div>
 
 <script>
-// Load user's recent comments
-async function loadComments() {
-  const username = "{{ profile.username }}";
+// Get username from URL path (e.g., /profile/kev)
+const pathParts = window.location.pathname.split('/');
+const username = pathParts[pathParts.length - 1];
+
+if (!username) {
+  document.querySelector('.container').innerHTML = '<div class="alert alert-danger">No username provided</div>';
+} else {
+  loadProfile(username);
+}
+
+async function loadProfile(username) {
+  try {
+    // Load profile data from API
+    const response = await fetch(`https://chatter.kevsrobots.com/profile/${username}`, {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('Profile not found');
+    }
+
+    const profile = await response.json();
+
+    // Update page title
+    document.title = `${profile.username}'s Profile - Kev's Robots`;
+
+    // Set avatar
+    const avatarDiv = document.getElementById('profile-avatar');
+    if (profile.profile_picture_url) {
+      avatarDiv.innerHTML = `<img src="${escapeHtml(profile.profile_picture_url)}" alt="${escapeHtml(profile.username)}" class="rounded-circle img-fluid" style="max-width: 150px; max-height: 150px; object-fit: cover;">`;
+    } else {
+      avatarDiv.innerHTML = `<div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center text-white" style="width: 150px; height: 150px; font-size: 3rem;">${escapeHtml(profile.username[0].toUpperCase())}</div>`;
+    }
+
+    // Set name and username
+    document.getElementById('profile-name').textContent = `${profile.firstname} ${profile.lastname}`;
+    document.getElementById('profile-username').textContent = `@${profile.username}`;
+
+    // Show edit button if viewing own profile
+    if (profile.is_own_profile) {
+      document.getElementById('edit-profile-button').innerHTML = '<a href="https://chatter.kevsrobots.com/account" class="btn btn-primary btn-sm"><i class="fas fa-edit me-1"></i>Edit Profile</a>';
+    }
+
+    // Show location if available
+    if (profile.location) {
+      document.getElementById('profile-location').style.display = 'block';
+      document.getElementById('location-text').textContent = profile.location;
+    }
+
+    // Show bio if available
+    if (profile.bio) {
+      const bioEl = document.getElementById('profile-bio');
+      bioEl.style.display = 'block';
+      bioEl.textContent = profile.bio;
+    }
+
+    // Set join date
+    const joinDate = new Date(profile.created_at);
+    document.getElementById('profile-joined').textContent = `Joined ${joinDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+
+    // Set comment count
+    document.getElementById('comment-count').textContent = profile.comment_count;
+
+    // Load comments
+    loadComments(username);
+
+  } catch (error) {
+    console.error('Error loading profile:', error);
+    document.querySelector('.container').innerHTML = '<div class="alert alert-danger">Profile not found or error loading profile.</div>';
+  }
+}
+
+async function loadComments(username) {
   const commentsDiv = document.getElementById('comments-list');
 
   try {
@@ -104,7 +160,7 @@ async function loadComments() {
           <p class="mb-2">${escapeHtml(comment.content)}</p>
           <small class="text-muted">
             <i class="fas fa-link me-1"></i>
-            <a href="https://www.kevsrobots.com/${comment.url}" target="_blank" class="text-decoration-none">
+            <a href="https://www.kevsrobots.com/${escapeHtml(comment.url)}" target="_blank" class="text-decoration-none">
               ${escapeHtml(comment.url)}
             </a>
             <span class="ms-3">
@@ -125,12 +181,10 @@ async function loadComments() {
 }
 
 function escapeHtml(text) {
+  if (!text) return '';
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
-
-// Load comments on page load
-document.addEventListener('DOMContentLoaded', loadComments);
 </script>
 {% endblock %}
