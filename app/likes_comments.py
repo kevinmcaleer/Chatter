@@ -132,6 +132,7 @@ def get_comments_with_usernames(url: str, session: Session = Depends(get_session
             edited_at=comment.edited_at,
             user_id=user.id,
             username=user.username,
+            profile_picture=user.profile_picture,
         )
         for comment, user in results
     ]

@@ -71,6 +71,7 @@ class CommentWithUser(BaseModel):
     edited_at: Optional[datetime] = None
     user_id: int
     username: str
+    profile_picture: Optional[str] = None  # Profile picture filename
 
 class CommentUpdate(BaseModel):
     content: str

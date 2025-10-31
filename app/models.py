@@ -23,6 +23,11 @@ class User(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = None  # Track last login time for engagement metrics
 
+    # Profile fields (Issue #44)
+    profile_picture: Optional[str] = None  # Filename of profile picture stored on NAS
+    location: Optional[str] = None  # Country/location string for timezone/localization
+    bio: Optional[str] = None  # Short biography/about me text
+
     # Optional relationships
     likes: List["Like"] = Relationship(back_populates="user", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     comments: List["Comment"] = Relationship(back_populates="user", sa_relationship_kwargs={"foreign_keys": "[Comment.user_id]", "cascade": "all, delete-orphan"})

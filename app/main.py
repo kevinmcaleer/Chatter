@@ -9,6 +9,7 @@ from .auth import router as auth_router
 from .likes_comments import router as lc_router
 from .accounts import router as accounts_router
 from .page_views import router as page_views_router
+from .profile import router as profile_router
 from dotenv import load_dotenv
 import os
 load_dotenv()
@@ -58,6 +59,7 @@ app.include_router(lc_router, prefix="/interact")
 app.include_router(auth_router)
 app.include_router(accounts_router, prefix="/accounts")
 app.include_router(page_views_router, prefix="/analytics")
+app.include_router(profile_router)
 
 @app.on_event("startup")
 def on_startup():
