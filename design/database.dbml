@@ -17,6 +17,9 @@ Table user {
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
   last_login timestamp // Last login time for engagement tracking
+  profile_picture varchar // Filename of profile picture stored on NAS (Issue #44)
+  location varchar // User's location for timezone/localization (Issue #44)
+  bio text // Short biography/about me text (Issue #44)
 }
 
 table accountlog {

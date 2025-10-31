@@ -87,6 +87,36 @@ def get_current_user(
 
     return user
 
+def get_optional_user(
+    request: Request,
+    token_cookie: Optional[str] = Cookie(default=None, alias="access_token"),
+    token_header: Optional[str] = Header(default=None, alias="Authorization"),
+    session: Session = Depends(get_session)
+) -> Optional[User]:
+    """
+    Similar to get_current_user but returns None instead of raising an error
+    when no user is authenticated. Used for endpoints that work for both
+    authenticated and anonymous users (e.g., viewing profiles).
+    """
+    token = None
+
+    # Use Bearer token from Authorization header if provided
+    if token_header and token_header.startswith("Bearer "):
+        token = token_header[7:]
+    # Fallback to token from HttpOnly cookie
+    elif token_cookie and token_cookie.startswith("Bearer "):
+        token = token_cookie[7:]
+
+    if not token:
+        return None
+
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+
+    user = session.exec(select(User).where(User.username == payload["sub"])).first()
+    return user
+
 def get_current_admin(current_user: User = Depends(get_current_user)):
     """Dependency to check if current user is an admin (type=1)"""
     if current_user.type != 1:
@@ -583,10 +613,55 @@ def login_user(
 
     return response
 
+@router.get("/profile/{username}")
+def view_profile_page(
+    username: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """Display a user's profile page"""
+    # Get user by username
+    user = session.exec(select(User).where(User.username == username)).first()
+    if not user or user.status != "active":
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Get comment count
+    comment_count = session.exec(
+        select(func.count(Comment.id))
+        .where(Comment.user_id == user.id)
+        .where(Comment.is_removed == False)
+        .where(Comment.is_hidden == False)
+    ).one()
+
+    # Build profile picture URL
+    profile_picture_url = None
+    if user.profile_picture:
+        profile_picture_url = f"https://chatter.kevsrobots.com/profile_pictures/{user.profile_picture}"
+
+    # Check if viewing own profile
+    is_own_profile = current_user is not None and current_user.id == user.id
+
+    context = get_template_context(
+        request,
+        profile={
+            "username": user.username,
+            "firstname": user.firstname,
+            "lastname": user.lastname,
+            "location": user.location,
+            "bio": user.bio,
+            "profile_picture_url": profile_picture_url,
+            "created_at": user.created_at,
+            "comment_count": comment_count,
+            "is_own_profile": is_own_profile
+        }
+    )
+    return templates.TemplateResponse("profile.html", context)
+
 @router.get("/account")
 def account_page(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
     like_count = session.exec(select(func.count()).where(Like.user_id == user.id)).one()
-    
+
     comments = session.exec(select(Comment).where(Comment.user_id == user.id)).all()
 
     return templates.TemplateResponse("account.html", {
@@ -600,6 +675,8 @@ def account_page(request: Request, session: Session = Depends(get_session), user
 def update_account(
     request: Request,
     email: str = Form(...),
+    location: Optional[str] = Form(None),
+    bio: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -632,7 +709,11 @@ def update_account(
             "update_error": "Email already in use by another account"
         })
 
+    # Update user fields
     user.email = email
+    user.location = location.strip() if location else None
+    user.bio = bio.strip() if bio else None
+    user.updated_at = datetime.utcnow()
     session.add(user)
     session.commit()
 
@@ -643,7 +724,7 @@ def update_account(
         "user": user,
         "like_count": like_count,
         "comments": comments,
-        "update_success": "Email updated successfully"
+        "update_success": "Profile updated successfully"
     })
 
 
