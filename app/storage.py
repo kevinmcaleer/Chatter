@@ -163,7 +163,7 @@ def save_to_nas(file_content: bytes, filename: str) -> bool:
         from smbprotocol.connection import Connection
         from smbprotocol.session import Session
         from smbprotocol.tree import TreeConnect
-        from smbprotocol.open import Open, CreateDisposition, FileAccess
+        from smbprotocol.open import Open, CreateDisposition, FilePipePrinterAccessMask
 
         # Connect to NAS
         connection = Connection(uuid.uuid4(), NAS_HOST, 445)
@@ -180,7 +180,7 @@ def save_to_nas(file_content: bytes, filename: str) -> bool:
         try:
             dir_open = Open(tree, NAS_PROFILE_PICTURES_PATH)
             dir_open.create(
-                access=FileAccess.FILE_READ_ATTRIBUTES,
+                access=FilePipePrinterAccessMask.FILE_READ_ATTRIBUTES,
                 disposition=CreateDisposition.FILE_OPEN_IF
             )
             dir_open.close()
@@ -191,7 +191,7 @@ def save_to_nas(file_content: bytes, filename: str) -> bool:
         file_path = f"{NAS_PROFILE_PICTURES_PATH}\\{filename}"
         file_open = Open(tree, file_path)
         file_open.create(
-            access=FileAccess.FILE_WRITE_DATA,
+            access=FilePipePrinterAccessMask.FILE_WRITE_DATA,
             disposition=CreateDisposition.FILE_OVERWRITE_IF
         )
         file_open.write(file_content, 0)
@@ -304,7 +304,7 @@ def read_from_nas(filename: str) -> Optional[bytes]:
         from smbprotocol.connection import Connection
         from smbprotocol.session import Session
         from smbprotocol.tree import TreeConnect
-        from smbprotocol.open import Open, CreateDisposition, FileAccess
+        from smbprotocol.open import Open, CreateDisposition, FilePipePrinterAccessMask
 
         # Connect to NAS
         connection = Connection(uuid.uuid4(), NAS_HOST, 445)
@@ -321,7 +321,7 @@ def read_from_nas(filename: str) -> Optional[bytes]:
         file_path = f"{NAS_PROFILE_PICTURES_PATH}\\{filename}"
         file_open = Open(tree, file_path)
         file_open.create(
-            access=FileAccess.FILE_READ_DATA,
+            access=FilePipePrinterAccessMask.FILE_READ_DATA,
             disposition=CreateDisposition.FILE_OPEN
         )
 
