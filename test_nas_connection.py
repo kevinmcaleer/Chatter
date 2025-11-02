@@ -7,12 +7,15 @@ This script tests:
 2. File upload
 3. File read
 4. File delete
+
+Usage:
+    docker exec chatter-app python test_nas_connection.py
 """
 
 import sys
 import logging
+import os
 from pathlib import Path
-from dotenv import load_dotenv
 
 # Setup logging
 logging.basicConfig(
@@ -21,13 +24,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
-
-# Import after environment is loaded
+# Add app to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "app"))
-from storage import check_nas_connection, save_to_nas, read_from_nas
-from config import NAS_HOST, NAS_USERNAME, NAS_PASSWORD, NAS_SHARE_NAME
+
+# Import with proper module path
+from app.storage import check_nas_connection, save_to_nas, read_from_nas, delete_profile_picture
+from app.config import NAS_HOST, NAS_USERNAME, NAS_PASSWORD, NAS_SHARE_NAME
 
 def test_nas_connectivity():
     """Test NAS connection and file operations."""
@@ -74,7 +76,6 @@ def test_nas_connectivity():
 
     # Test 4: Cleanup (delete test file)
     logger.info("\n[Test 4] Cleaning up test file...")
-    from storage import delete_profile_picture
     if delete_profile_picture(test_filename):
         logger.info("✓ Test file deleted successfully")
     else:
