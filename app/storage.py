@@ -184,7 +184,24 @@ def save_to_nas(file_content: bytes, filename: str) -> bool:
         tree = TreeConnect(session, f"\\\\{NAS_HOST}\\{NAS_SHARE_NAME}")
         tree.connect()
 
-        # Write file directly (directory will be created automatically if needed)
+        # Ensure profile_pictures directory exists
+        try:
+            dir_open = Open(tree, NAS_PROFILE_PICTURES_PATH)
+            dir_open.create(
+                ImpersonationLevel.Impersonation,
+                FilePipePrinterAccessMask.GENERIC_READ,
+                FileAttributes.FILE_ATTRIBUTE_DIRECTORY,
+                ShareAccess.FILE_SHARE_READ | ShareAccess.FILE_SHARE_WRITE,
+                CreateDisposition.FILE_OPEN_IF,
+                CreateOptions.FILE_DIRECTORY_FILE,
+                None
+            )
+            dir_open.close()
+            logger.info(f"Ensured directory exists: {NAS_PROFILE_PICTURES_PATH}")
+        except Exception as e:
+            logger.warning(f"Could not ensure directory exists: {e}")
+
+        # Write file
         file_path = f"{NAS_PROFILE_PICTURES_PATH}\\{filename}"
         file_open = Open(tree, file_path)
         file_open.create(
