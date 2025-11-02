@@ -163,7 +163,15 @@ def save_to_nas(file_content: bytes, filename: str) -> bool:
         from smbprotocol.connection import Connection
         from smbprotocol.session import Session
         from smbprotocol.tree import TreeConnect
-        from smbprotocol.open import Open, CreateDisposition, FilePipePrinterAccessMask
+        from smbprotocol.open import (
+            Open,
+            CreateDisposition,
+            FilePipePrinterAccessMask,
+            ImpersonationLevel,
+            FileAttributes,
+            ShareAccess,
+            CreateOptions
+        )
 
         # Connect to NAS
         connection = Connection(uuid.uuid4(), NAS_HOST, 445)
@@ -176,23 +184,17 @@ def save_to_nas(file_content: bytes, filename: str) -> bool:
         tree = TreeConnect(session, f"\\\\{NAS_HOST}\\{NAS_SHARE_NAME}")
         tree.connect()
 
-        # Ensure directory exists (create if needed)
-        try:
-            dir_open = Open(tree, NAS_PROFILE_PICTURES_PATH)
-            dir_open.create(
-                access=FilePipePrinterAccessMask.FILE_READ_ATTRIBUTES,
-                disposition=CreateDisposition.FILE_OPEN_IF
-            )
-            dir_open.close()
-        except Exception as e:
-            logger.warning(f"Could not create directory on NAS: {e}")
-
-        # Write file
+        # Write file directly (directory will be created automatically if needed)
         file_path = f"{NAS_PROFILE_PICTURES_PATH}\\{filename}"
         file_open = Open(tree, file_path)
         file_open.create(
-            access=FilePipePrinterAccessMask.FILE_WRITE_DATA,
-            disposition=CreateDisposition.FILE_OVERWRITE_IF
+            ImpersonationLevel.Impersonation,
+            FilePipePrinterAccessMask.GENERIC_WRITE,
+            FileAttributes.FILE_ATTRIBUTE_NORMAL,
+            ShareAccess.FILE_SHARE_READ,
+            CreateDisposition.FILE_OVERWRITE_IF,
+            CreateOptions.FILE_NON_DIRECTORY_FILE,
+            None
         )
         file_open.write(file_content, 0)
         file_open.close()
@@ -304,7 +306,15 @@ def read_from_nas(filename: str) -> Optional[bytes]:
         from smbprotocol.connection import Connection
         from smbprotocol.session import Session
         from smbprotocol.tree import TreeConnect
-        from smbprotocol.open import Open, CreateDisposition, FilePipePrinterAccessMask
+        from smbprotocol.open import (
+            Open,
+            CreateDisposition,
+            FilePipePrinterAccessMask,
+            ImpersonationLevel,
+            FileAttributes,
+            ShareAccess,
+            CreateOptions
+        )
 
         # Connect to NAS
         connection = Connection(uuid.uuid4(), NAS_HOST, 445)
@@ -321,8 +331,13 @@ def read_from_nas(filename: str) -> Optional[bytes]:
         file_path = f"{NAS_PROFILE_PICTURES_PATH}\\{filename}"
         file_open = Open(tree, file_path)
         file_open.create(
-            access=FilePipePrinterAccessMask.FILE_READ_DATA,
-            disposition=CreateDisposition.FILE_OPEN
+            ImpersonationLevel.Impersonation,
+            FilePipePrinterAccessMask.GENERIC_READ,
+            FileAttributes.FILE_ATTRIBUTE_NORMAL,
+            ShareAccess.FILE_SHARE_READ,
+            CreateDisposition.FILE_OPEN,
+            CreateOptions.FILE_NON_DIRECTORY_FILE,
+            None
         )
 
         # Read entire file
