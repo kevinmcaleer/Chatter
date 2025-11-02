@@ -137,3 +137,14 @@ class PageViewStats(BaseModel):
     view_count_formatted: str
     unique_visitors: int
     last_viewed_at: Optional[datetime] = None
+
+class PageViewTimelineDataPoint(BaseModel):
+    date: str  # Date in YYYY-MM-DD format
+    label: str  # Day name (M, T, W...) or month name (Jan, Feb...)
+    count: int  # Number of views
+
+class PageViewTimeline(BaseModel):
+    url: str
+    period: str  # 'weekly', 'monthly', or 'annual'
+    data: list[PageViewTimelineDataPoint]
+    total_views: int

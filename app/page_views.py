@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Query
 from sqlmodel import Session, select
 from .models import PageView
-from .schemas import PageViewCreate, PageViewStats
+from .schemas import PageViewCreate, PageViewStats, PageViewTimeline, PageViewTimelineDataPoint
 from .database import get_session
-from typing import Optional
+from typing import Optional, Literal
 from sqlalchemy import func, text
-from datetime import datetime
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
@@ -143,3 +143,127 @@ def get_most_viewed(limit: int = 10, session: Session = Depends(get_session)):
         }
         for row in result
     ]
+
+
+@router.get("/page-views/{url:path}/timeline", response_model=PageViewTimeline)
+def get_page_view_timeline(
+    url: str,
+    period: Literal["weekly", "monthly", "annual"] = Query(default="weekly"),
+    session: Session = Depends(get_session)
+):
+    """
+    Get page view timeline data for graphing.
+
+    Returns time-series data grouped by day or month depending on period:
+    - weekly: Last 7 days, grouped by day
+    - monthly: Last 30 days, grouped by day
+    - annual: Last 12 months, grouped by month
+
+    Available to all users (no authentication required)
+    """
+    # Strip leading slash to match storage format
+    url = url.lstrip('/')
+
+    # Calculate date range based on period
+    now = datetime.utcnow()
+
+    if period == "weekly":
+        start_date = now - timedelta(days=6)  # Last 7 days including today
+        date_format = "%Y-%m-%d"
+        group_by_format = "DATE(viewed_at)"
+
+    elif period == "monthly":
+        start_date = now - timedelta(days=29)  # Last 30 days including today
+        date_format = "%Y-%m-%d"
+        group_by_format = "DATE(viewed_at)"
+
+    else:  # annual
+        start_date = now - timedelta(days=364)  # Last 12 months including current
+        date_format = "%Y-%m"
+        group_by_format = "DATE_TRUNC('month', viewed_at)"
+
+    # Query database for view counts grouped by date
+    if period in ["weekly", "monthly"]:
+        query = text("""
+            SELECT
+                DATE(viewed_at) as date,
+                COUNT(*) as count
+            FROM pageview
+            WHERE url = :url
+              AND viewed_at >= :start_date
+            GROUP BY DATE(viewed_at)
+            ORDER BY date
+        """)
+    else:  # annual
+        query = text("""
+            SELECT
+                TO_CHAR(DATE_TRUNC('month', viewed_at), 'YYYY-MM') as date,
+                COUNT(*) as count
+            FROM pageview
+            WHERE url = :url
+              AND viewed_at >= :start_date
+            GROUP BY DATE_TRUNC('month', viewed_at)
+            ORDER BY DATE_TRUNC('month', viewed_at)
+        """)
+
+    result = session.execute(query, {"url": url, "start_date": start_date})
+    rows = result.fetchall()
+
+    # Create a dict of dates to counts for easy lookup
+    view_counts = {str(row[0]): row[1] for row in rows}
+
+    # Generate complete date range with labels
+    data_points = []
+    total_views = 0
+
+    if period == "weekly":
+        # Last 7 days with day labels (M, T, W, T, F, S, S)
+        day_labels = ["M", "T", "W", "T", "F", "S", "S"]
+        for i in range(7):
+            date = start_date + timedelta(days=i)
+            date_str = date.strftime("%Y-%m-%d")
+            count = view_counts.get(date_str, 0)
+            total_views += count
+
+            data_points.append(PageViewTimelineDataPoint(
+                date=date_str,
+                label=day_labels[date.weekday()],
+                count=count
+            ))
+
+    elif period == "monthly":
+        # Last 30 days with day of month labels
+        for i in range(30):
+            date = start_date + timedelta(days=i)
+            date_str = date.strftime("%Y-%m-%d")
+            count = view_counts.get(date_str, 0)
+            total_views += count
+
+            data_points.append(PageViewTimelineDataPoint(
+                date=date_str,
+                label=str(date.day),
+                count=count
+            ))
+
+    else:  # annual
+        # Last 12 months with month labels (Jan, Feb, etc.)
+        month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        for i in range(12):
+            date = (start_date.replace(day=1) + timedelta(days=32 * i)).replace(day=1)
+            date_str = date.strftime("%Y-%m")
+            count = view_counts.get(date_str, 0)
+            total_views += count
+
+            data_points.append(PageViewTimelineDataPoint(
+                date=date_str,
+                label=month_labels[date.month - 1],
+                count=count
+            ))
+
+    return PageViewTimeline(
+        url=url,
+        period=period,
+        data=data_points,
+        total_views=total_views
+    )
