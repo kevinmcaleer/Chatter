@@ -75,6 +75,9 @@ def get_page_view_stats(
     Available to all users (no authentication required)
     Queries live pageview table for real-time accuracy
     """
+    # Strip leading slash to match storage format
+    url = url.lstrip('/')
+
     # Query live pageview table directly for real-time counts
     view_count = session.exec(
         select(func.count()).where(PageView.url == url)
