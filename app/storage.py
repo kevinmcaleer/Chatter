@@ -163,7 +163,7 @@ def save_to_nas(file_content: bytes, filename: str) -> bool:
         from smbprotocol.connection import Connection
         from smbprotocol.session import Session
         from smbprotocol.tree import TreeConnect
-        from smbprotocol.file import Open, CreateDisposition, FileAccess
+        from smbprotocol.open import Open, CreateDisposition, FileAccess
 
         # Connect to NAS
         connection = Connection(uuid.uuid4(), NAS_HOST, 445)
@@ -304,7 +304,7 @@ def read_from_nas(filename: str) -> Optional[bytes]:
         from smbprotocol.connection import Connection
         from smbprotocol.session import Session
         from smbprotocol.tree import TreeConnect
-        from smbprotocol.file import Open, CreateDisposition, FileAccess
+        from smbprotocol.open import Open, CreateDisposition, FileAccess
 
         # Connect to NAS
         connection = Connection(uuid.uuid4(), NAS_HOST, 445)
@@ -360,7 +360,7 @@ def delete_profile_picture(filename: str) -> bool:
             from smbprotocol.connection import Connection
             from smbprotocol.session import Session
             from smbprotocol.tree import TreeConnect
-            from smbprotocol.file import Open, CreateDisposition
+            from smbprotocol.open import Open, CreateDisposition
 
             connection = Connection(uuid.uuid4(), NAS_HOST, 445)
             connection.connect(timeout=10)
