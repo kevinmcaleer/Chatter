@@ -466,3 +466,131 @@ Health check hits `/health` endpoint every 30 seconds.
 9. [ ] Set up monitoring/alerting
 10. [ ] Document rollback procedures
 
+---
+
+## 📁 NAS Storage Configuration (Issue #44 - User Profiles)
+
+### Profile Picture Storage
+
+Profile pictures are stored on NAS (SMB share) with local fallback:
+
+**Storage Priority:**
+1. **Primary**: NAS at 192.168.1.79/chatter/profile_pictures
+2. **Fallback**: Local container storage at /tmp/chatter_uploads/profile_pictures
+
+**Features:**
+- Automatic fallback if NAS unavailable
+- Files served from NAS when available
+- Supports SMB/CIFS protocol
+- Image validation and resizing (400x400px max, 5MB limit)
+
+### NAS Configuration Steps
+
+- [x] **Add NAS credentials to .env**
+  - ✅ Added to .env.example template
+  - ✅ NAS_HOST=192.168.1.79
+  - ✅ NAS_USERNAME (set in environment)
+  - ✅ NAS_PASSWORD (set in environment)
+  - ✅ NAS_SHARE_NAME=chatter
+  - Location: `.env.example:49-56`, `.env:40-47`
+
+- [x] **Install SMB client library**
+  - ✅ Added smbprotocol==1.14.0 to requirements.txt
+  - ✅ Included in Docker image build
+  - Location: `requirements.txt:63`
+
+- [x] **Implement NAS storage layer**
+  - ✅ Created storage.py with NAS read/write/delete functions
+  - ✅ Connection pooling and error handling
+  - ✅ Automatic fallback to local storage
+  - ✅ Image validation and resizing
+  - Location: `app/storage.py`
+
+- [x] **Update profile picture endpoints**
+  - ✅ Upload endpoint saves to NAS (profile.py:upload_profile_picture)
+  - ✅ Delete endpoint removes from NAS (profile.py:delete_profile_picture)
+  - ✅ Serve endpoint reads from NAS first (profile.py:serve_profile_picture)
+  - Location: `app/profile.py:292-330`
+
+- [x] **Create migration script**
+  - ✅ Script to move existing files from containers to NAS
+  - ✅ Connects to all production servers (dev01, dev03, dev04)
+  - ✅ Extracts files from /tmp/chatter_uploads/profile_pictures
+  - ✅ Uploads to NAS with verification
+  - Location: `migrate_profile_pictures_to_nas.py`
+
+- [x] **Create test script**
+  - ✅ Test NAS connectivity
+  - ✅ Test file upload/read/delete operations
+  - ✅ Cleanup test files
+  - Location: `test_nas_connection.py`
+
+### NAS Deployment Steps
+
+1. [ ] **Configure NAS share**
+   ```bash
+   # On NAS (192.168.1.79)
+   # Create SMB share named "chatter"
+   # Create directory: chatter/profile_pictures
+   # Set permissions for kevsrobots user
+   ```
+
+2. [ ] **Update production .env files**
+   ```bash
+   # On each server (dev01, dev03, dev04)
+   # Add to /path/to/chatter/.env:
+   NAS_HOST=192.168.1.79
+   NAS_USERNAME=kevsrobots
+   NAS_PASSWORD=<password>
+   NAS_SHARE_NAME=chatter
+   ```
+
+3. [ ] **Test NAS connectivity**
+   ```bash
+   # Inside Docker container
+   docker exec chatter-app python test_nas_connection.py
+   ```
+
+4. [ ] **Run migration script** (if existing pictures)
+   ```bash
+   # On development machine (with SSH access to servers)
+   python migrate_profile_pictures_to_nas.py
+   ```
+
+5. [ ] **Verify profile pictures**
+   ```bash
+   # Check that existing profile pictures still display
+   # Upload new profile picture and verify it saves to NAS
+   # Delete profile picture and verify removal from NAS
+   ```
+
+### NAS Troubleshooting
+
+**If NAS is unavailable:**
+- App automatically falls back to local storage
+- New uploads save to /tmp/chatter_uploads/profile_pictures
+- Existing NAS files won't be accessible until NAS restored
+- No errors shown to users, logging shows fallback
+
+**If NAS credentials are wrong:**
+- Check logs: `docker logs chatter-app | grep NAS`
+- Verify .env file has correct credentials
+- Test connection: `docker exec chatter-app python test_nas_connection.py`
+- Update .env and restart: `docker-compose restart`
+
+**To manually check NAS files:**
+```bash
+# On any server with SMB client
+smbclient //192.168.1.79/chatter -U kevsrobots
+cd profile_pictures
+ls
+```
+
+### NAS Monitoring
+
+Monitor NAS storage health:
+- Check logs for "Failed to connect to NAS" warnings
+- Verify profile pictures display correctly on user profiles
+- Monitor NAS disk space usage
+- Set up alerts for NAS connectivity issues
+

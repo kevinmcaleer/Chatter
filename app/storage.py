@@ -290,6 +290,58 @@ def save_profile_picture(
     return None
 
 
+def read_from_nas(filename: str) -> Optional[bytes]:
+    """
+    Read file from NAS storage via SMB.
+
+    Args:
+        filename: Filename to read
+
+    Returns:
+        File bytes if successful, None otherwise
+    """
+    try:
+        from smbprotocol.connection import Connection
+        from smbprotocol.session import Session
+        from smbprotocol.tree import TreeConnect
+        from smbprotocol.file import Open, CreateDisposition, FileAccess
+
+        # Connect to NAS
+        connection = Connection(uuid.uuid4(), NAS_HOST, 445)
+        connection.connect(timeout=10)
+
+        session = Session(connection, NAS_USERNAME, NAS_PASSWORD)
+        session.connect()
+
+        # Connect to share
+        tree = TreeConnect(session, f"\\\\{NAS_HOST}\\{NAS_SHARE_NAME}")
+        tree.connect()
+
+        # Read file
+        file_path = f"{NAS_PROFILE_PICTURES_PATH}\\{filename}"
+        file_open = Open(tree, file_path)
+        file_open.create(
+            access=FileAccess.FILE_READ_DATA,
+            disposition=CreateDisposition.FILE_OPEN
+        )
+
+        # Read entire file
+        file_size = file_open.end_of_file
+        file_content = file_open.read(0, file_size)
+        file_open.close()
+
+        # Cleanup
+        tree.disconnect()
+        connection.disconnect()
+
+        logger.info(f"Successfully read {filename} from NAS")
+        return file_content
+
+    except Exception as e:
+        logger.error(f"Failed to read from NAS: {e}")
+        return None
+
+
 def delete_profile_picture(filename: str) -> bool:
     """
     Delete profile picture from storage.

@@ -12,7 +12,7 @@ from pathlib import Path
 from .database import get_session
 from .auth import get_current_user, get_optional_user
 from .models import User, Comment
-from .storage import save_profile_picture, delete_profile_picture, LOCAL_STORAGE_PATH
+from .storage import save_profile_picture, delete_profile_picture, read_from_nas, check_nas_connection, LOCAL_STORAGE_PATH
 from .config import NAS_PROFILE_PICTURES_PATH, PROFILE_PICTURE_URL_BASE
 
 router = APIRouter()
@@ -294,19 +294,30 @@ async def serve_profile_picture(filename: str):
     """
     Serve a profile picture file.
 
-    Tries NAS first (not implemented in this endpoint as NAS files
-    would be served separately), falls back to local storage.
+    Tries NAS first, then falls back to local storage.
 
     Args:
         filename: Profile picture filename
 
     Returns:
-        FileResponse with image
+        Response with image bytes
 
     Raises:
         404: File not found
     """
-    # Check local storage
+    from fastapi.responses import Response
+
+    # Try NAS first if available
+    if check_nas_connection():
+        file_content = read_from_nas(filename)
+        if file_content:
+            return Response(
+                content=file_content,
+                media_type="image/png",
+                headers={"Cache-Control": "public, max-age=604800"}  # Cache for 1 week
+            )
+
+    # Fallback to local storage
     local_path = LOCAL_STORAGE_PATH / "profile_pictures" / filename
 
     if local_path.exists() and local_path.is_file():
@@ -315,9 +326,6 @@ async def serve_profile_picture(filename: str):
             media_type="image/png",
             headers={"Cache-Control": "public, max-age=604800"}  # Cache for 1 week
         )
-
-    # TODO: Implement NAS file serving if needed
-    # For now, NAS files should be served via separate static file server or CDN
 
     raise HTTPException(status_code=404, detail="Profile picture not found")
 
