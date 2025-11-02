@@ -392,7 +392,15 @@ def delete_profile_picture(filename: str) -> bool:
             from smbprotocol.connection import Connection
             from smbprotocol.session import Session
             from smbprotocol.tree import TreeConnect
-            from smbprotocol.open import Open, CreateDisposition
+            from smbprotocol.open import (
+                Open,
+                CreateDisposition,
+                FilePipePrinterAccessMask,
+                ImpersonationLevel,
+                FileAttributes,
+                ShareAccess,
+                CreateOptions
+            )
 
             connection = Connection(uuid.uuid4(), NAS_HOST, 445)
             connection.connect(timeout=10)
@@ -405,8 +413,15 @@ def delete_profile_picture(filename: str) -> bool:
 
             file_path = f"{NAS_PROFILE_PICTURES_PATH}\\{filename}"
             file_open = Open(tree, file_path)
-            file_open.create(disposition=CreateDisposition.FILE_OPEN)
-            file_open.delete()
+            file_open.create(
+                ImpersonationLevel.Impersonation,
+                FilePipePrinterAccessMask.DELETE,
+                FileAttributes.FILE_ATTRIBUTE_NORMAL,
+                ShareAccess.FILE_SHARE_READ | ShareAccess.FILE_SHARE_WRITE | ShareAccess.FILE_SHARE_DELETE,
+                CreateDisposition.FILE_OPEN,
+                CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_DELETE_ON_CLOSE,
+                None
+            )
             file_open.close()
 
             tree.disconnect()
