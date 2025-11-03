@@ -113,6 +113,9 @@ def get_comment_versions(
 
 @router.get("/comments/{url:path}", response_model=List[CommentWithUser])
 def get_comments_with_usernames(url: str, session: Session = Depends(get_session)):
+    # Strip leading slash from URL to normalize storage
+    url = url.lstrip('/')
+
     statement = (
         select(Comment, User)
         .where(Comment.url == url)
@@ -231,6 +234,9 @@ def count_likes(
     Available to all users (logged in or not).
     To check if a specific user has liked, use POST /interact/like with check_only=true
     """
+    # Strip leading slash from URL to normalize storage
+    url = url.lstrip('/')
+
     # Get total like count
     like_count = session.exec(select(func.count()).where(Like.url == url)).one()
 
@@ -258,6 +264,9 @@ def get_combined_like_status(
     This reduces 2 API calls to 1 on page load.
     Works for both authenticated and anonymous users.
     """
+    # Strip leading slash from URL to normalize storage
+    url = url.lstrip('/')
+
     # Get total like count
     like_count = session.exec(select(func.count()).where(Like.url == url)).one()
 
@@ -288,6 +297,9 @@ def get_user_like_status(
     Returns the like_id if liked, null if not.
     Requires authentication.
     """
+    # Strip leading slash from URL to normalize storage
+    url = url.lstrip('/')
+
     user_like = session.exec(
         select(Like).where(Like.url == url, Like.user_id == user.id)
     ).first()
