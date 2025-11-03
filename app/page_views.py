@@ -178,9 +178,9 @@ def get_page_view_timeline(
             ))
 
     else:  # annual
-        # Last 12 months with month labels (Jan, Feb, etc.)
-        month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        # Last 12 months with single letter month labels (J, F, M, etc.)
+        month_labels = ["J", "F", "M", "A", "M", "J",
+                       "J", "A", "S", "O", "N", "D"]
         for i in range(12):
             date = (start_date.replace(day=1) + timedelta(days=32 * i)).replace(day=1)
             date_str = date.strftime("%Y-%m")
