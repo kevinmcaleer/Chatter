@@ -19,19 +19,19 @@ class Project(SQLModel, table=True):
     __tablename__ = "project"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    title: str = Field(max_length=255, nullable=False, index=True)
-    description: str = Field(sa_column_kwargs={"type_": "TEXT"}, nullable=False)
-    author_id: int = Field(foreign_key="user.id", nullable=False, index=True)
-    status: str = Field(default="draft", max_length=20, nullable=False, index=True)  # 'draft' or 'published'
-    background: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})  # Markdown
+    title: str = Field(max_length=255, index=True)
+    description: str = Field(nullable=False)
+    author_id: int = Field(foreign_key="user.id", index=True)
+    status: str = Field(default="draft", max_length=20, index=True)  # 'draft' or 'published'
+    background: Optional[str] = Field(default=None)  # Markdown
     code_link: Optional[str] = Field(default=None, max_length=500)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
     primary_image_id: Optional[int] = Field(default=None, foreign_key="project_image.id")
-    view_count: int = Field(default=0, nullable=False)
-    download_count: int = Field(default=0, nullable=False)
-    like_count: int = Field(default=0, nullable=False)
-    comment_count: int = Field(default=0, nullable=False)
+    view_count: int = Field(default=0)
+    download_count: int = Field(default=0)
+    like_count: int = Field(default=0)
+    comment_count: int = Field(default=0)
 
     # Relationships
     author: Optional["User"] = Relationship(back_populates="projects")
@@ -53,8 +53,8 @@ class ProjectTag(SQLModel, table=True):
     __tablename__ = "project_tag"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", nullable=False, index=True)
-    tag_name: str = Field(max_length=100, nullable=False, index=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    tag_name: str = Field(max_length=100, index=True)
 
     # Relationships
     project: Optional["Project"] = Relationship(back_populates="tags")
@@ -71,11 +71,11 @@ class ProjectStep(SQLModel, table=True):
     __tablename__ = "project_step"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", nullable=False, index=True)
+    project_id: int = Field(foreign_key="project.id", index=True)
     step_number: int = Field(nullable=False)
-    title: str = Field(max_length=255, nullable=False)
-    content: str = Field(sa_column_kwargs={"type_": "TEXT"}, nullable=False)  # Markdown
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    title: str = Field(max_length=255)
+    content: str = Field(nullable=False)  # Markdown
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
     project: Optional["Project"] = Relationship(back_populates="steps")
@@ -92,12 +92,12 @@ class BillOfMaterial(SQLModel, table=True):
     __tablename__ = "bill_of_material"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", nullable=False, index=True)
-    item_name: str = Field(max_length=255, nullable=False)
-    description: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
-    quantity: int = Field(default=1, nullable=False)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    item_name: str = Field(max_length=255)
+    description: Optional[str] = Field(default=None)
+    quantity: int = Field(default=1)
     price_cents: Optional[int] = Field(default=None)  # Price in cents
-    item_order: int = Field(default=0, nullable=False)
+    item_order: int = Field(default=0)
 
     # Relationships
     project: Optional["Project"] = Relationship(back_populates="bill_of_materials")
@@ -111,10 +111,10 @@ class Component(SQLModel, table=True):
     __tablename__ = "component"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    name: str = Field(max_length=255, unique=True, nullable=False, index=True)
-    description: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
+    name: str = Field(max_length=255, unique=True, index=True)
+    description: Optional[str] = Field(default=None)
     datasheet_url: Optional[str] = Field(default=None, max_length=500)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
     project_components: List["ProjectComponent"] = Relationship(back_populates="component")
@@ -128,10 +128,10 @@ class ProjectComponent(SQLModel, table=True):
     __tablename__ = "project_component"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", nullable=False, index=True)
-    component_id: int = Field(foreign_key="component.id", nullable=False, index=True)
-    quantity: int = Field(default=1, nullable=False)
-    notes: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
+    project_id: int = Field(foreign_key="project.id", index=True)
+    component_id: int = Field(foreign_key="component.id", index=True)
+    quantity: int = Field(default=1)
+    notes: Optional[str] = Field(default=None)
 
     # Relationships
     project: Optional["Project"] = Relationship(back_populates="components")
@@ -149,13 +149,13 @@ class ProjectFile(SQLModel, table=True):
     __tablename__ = "project_file"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", nullable=False, index=True)
-    filename: str = Field(max_length=255, nullable=False)  # Stored filename
-    original_filename: str = Field(max_length=255, nullable=False)  # User's original filename
+    project_id: int = Field(foreign_key="project.id", index=True)
+    filename: str = Field(max_length=255)  # Stored filename
+    original_filename: str = Field(max_length=255)  # User's original filename
     file_size: int = Field(nullable=False)  # Size in bytes
     file_type: Optional[str] = Field(default=None, max_length=100)  # MIME type
-    description: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    description: Optional[str] = Field(default=None)
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
     project: Optional["Project"] = Relationship(back_populates="files")
@@ -169,12 +169,12 @@ class ProjectImage(SQLModel, table=True):
     __tablename__ = "project_image"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", nullable=False, index=True)
-    filename: str = Field(max_length=255, nullable=False)  # Stored filename
-    original_filename: str = Field(max_length=255, nullable=False)  # User's original filename
-    display_order: int = Field(default=0, nullable=False, index=True)
-    caption: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    project_id: int = Field(foreign_key="project.id", index=True)
+    filename: str = Field(max_length=255)  # Stored filename
+    original_filename: str = Field(max_length=255)  # User's original filename
+    display_order: int = Field(default=0, index=True)
+    caption: Optional[str] = Field(default=None)
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
     project: Optional["Project"] = Relationship(back_populates="images")
@@ -188,11 +188,11 @@ class ProjectLink(SQLModel, table=True):
     __tablename__ = "project_link"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", nullable=False, index=True)
-    url: str = Field(max_length=500, nullable=False)
-    title: str = Field(max_length=255, nullable=False)
-    link_type: str = Field(max_length=50, nullable=False, index=True)  # 'resource', 'video', 'course', 'article', 'related_project'
-    description: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
+    project_id: int = Field(foreign_key="project.id", index=True)
+    url: str = Field(max_length=500)
+    title: str = Field(max_length=255)
+    link_type: str = Field(max_length=50, index=True)  # 'resource', 'video', 'course', 'article', 'related_project'
+    description: Optional[str] = Field(default=None)
 
     # Relationships
     project: Optional["Project"] = Relationship(back_populates="links")
@@ -205,10 +205,10 @@ class ToolMaterial(SQLModel, table=True):
     __tablename__ = "tool_material"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", nullable=False, index=True)
-    name: str = Field(max_length=255, nullable=False)
-    tool_type: str = Field(max_length=20, nullable=False)  # 'tool' or 'material'
-    notes: Optional[str] = Field(default=None, sa_column_kwargs={"type_": "TEXT"})
+    project_id: int = Field(foreign_key="project.id", index=True)
+    name: str = Field(max_length=255)
+    tool_type: str = Field(max_length=20)  # 'tool' or 'material'
+    notes: Optional[str] = Field(default=None)
 
     # Relationships
     project: Optional["Project"] = Relationship(back_populates="tools_materials")

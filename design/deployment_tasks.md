@@ -617,66 +617,177 @@ Monitor NAS storage health:
 5. [ ] Verify endpoints: `curl http://localhost:8006/health`
 6. [ ] Test projects API: `curl http://localhost:8006/api/projects`
 
-### API Endpoints Available
+### API Endpoints Available (37 total)
+
+#### Core Project Endpoints (9)
 - POST /api/projects - Create project (requires auth)
-- GET /api/projects/{id} - View project
+- GET /api/projects/{id} - View project details
 - PUT /api/projects/{id} - Update project (requires auth, author only)
 - DELETE /api/projects/{id} - Delete project (requires auth, author only)
 - POST /api/projects/{id}/publish - Publish project (requires auth, author only)
 - POST /api/projects/{id}/unpublish - Unpublish project (requires auth, author only)
-- GET /api/projects - List/gallery with filters
+- GET /api/projects - List/gallery with filters (tag, author, status, sort, pagination)
+- GET /api/projects/{id}/download - Download project as ZIP with README
+- OPTIONS /api/projects - CORS preflight
 
-## Phase 2 - Child Resources & File Management (TODO)
+#### Project Steps (5)
+- POST /api/projects/{id}/steps - Add step
+- GET /api/projects/{id}/steps - List all steps
+- PUT /api/projects/{id}/steps/{step_id} - Update step
+- DELETE /api/projects/{id}/steps/{step_id} - Delete step
+- PUT /api/projects/{id}/steps/reorder - Reorder steps
 
-### File Upload System
-- [ ] Implement file upload endpoint with 25MB validation
-- [ ] Create storage directory: `/app/data/projects/files/`
-- [ ] Add file serving endpoint
-- [ ] Implement file deletion
+#### Bill of Materials (4)
+- POST /api/projects/{id}/bom - Add BOM item
+- GET /api/projects/{id}/bom - List BOM items
+- PUT /api/projects/{id}/bom/{item_id} - Update item
+- DELETE /api/projects/{id}/bom/{item_id} - Delete item
 
-### Image Gallery
-- [ ] Implement image upload endpoint
-- [ ] Create storage directory: `/app/data/projects/images/`
-- [ ] Add image serving endpoint
-- [ ] Implement image reordering
-- [ ] Set primary image functionality
+#### Components (5)
+- GET /api/components/search?q= - Autocomplete search (min 2 chars)
+- POST /api/components - Create new reusable component
+- POST /api/projects/{id}/components - Add component to project
+- GET /api/projects/{id}/components - List project components
+- DELETE /api/projects/{id}/components/{pc_id} - Remove component from project
 
-### Project Steps Management
-- [ ] POST /api/projects/{id}/steps - Add step
-- [ ] PUT /api/projects/{id}/steps/{step_id} - Update step
-- [ ] DELETE /api/projects/{id}/steps/{step_id} - Delete step
+#### Links (4)
+- POST /api/projects/{id}/links - Add link (video, course, article, etc.)
+- GET /api/projects/{id}/links - List project links
+- PUT /api/projects/{id}/links/{link_id} - Update link
+- DELETE /api/projects/{id}/links/{link_id} - Delete link
 
-### Bill of Materials
-- [ ] POST /api/projects/{id}/bom - Add BOM item
-- [ ] PUT /api/projects/{id}/bom/{item_id} - Update item
-- [ ] DELETE /api/projects/{id}/bom/{item_id} - Delete item
+#### Tools & Materials (4)
+- POST /api/projects/{id}/tools - Add tool/material
+- GET /api/projects/{id}/tools - List tools/materials
+- PUT /api/projects/{id}/tools/{tool_id} - Update tool/material
+- DELETE /api/projects/{id}/tools/{tool_id} - Delete tool/material
 
-### Components
-- [ ] GET /api/components/search?q= - Autocomplete search
-- [ ] POST /api/components - Create new component
-- [ ] POST /api/projects/{id}/components - Add component to project
+#### File Upload (3)
+- POST /api/projects/{id}/files - Upload file (max 25MB, requires auth)
+- GET /api/projects/{id}/files - List project files
+- DELETE /api/projects/{id}/files/{file_id} - Delete file
 
-### Links & Tools
-- [ ] POST /api/projects/{id}/links - Add link
-- [ ] POST /api/projects/{id}/tools - Add tool/material
+#### Image Gallery (5)
+- POST /api/projects/{id}/images - Upload image (max 10MB, requires auth)
+- GET /api/projects/{id}/images - List project images
+- PUT /api/projects/{id}/images/{image_id}/primary - Set primary image
+- DELETE /api/projects/{id}/images/{image_id} - Delete image
 
-## Phase 3 - Integration & Enhancement (TODO)
+## Phase 2 - File Upload Configuration ✅ COMPLETED
 
-### Extend Likes System
-- [ ] Modify Like model to support entity_type and entity_id
-- [ ] Update like endpoints to handle projects
-- [ ] Create migration for new columns
+### Storage Strategy - NAS with Local Fallback
+Project files and images use the same NAS storage system as profile pictures:
 
-### Extend Comments System
-- [ ] Modify Comment model to support entity_type and entity_id
-- [ ] Update comment endpoints to handle projects
-- [ ] Create migration for new columns
+**NAS Storage (Primary)**:
+- Files: `projects/files/` within NAS share
+- Images: `projects/images/` within NAS share
+- Connection: SMB/CIFS via smbprotocol
+- Requires: NAS_HOST, NAS_USERNAME, NAS_PASSWORD, NAS_SHARE_NAME environment variables
 
-### ZIP Download
-- [ ] Implement /api/projects/{id}/download endpoint
-- [ ] Generate README.md from project data
-- [ ] Bundle all files into ZIP
-- [ ] Track download count
+**Local Storage (Fallback)**:
+- Files: `/tmp/chatter_uploads/projects/files/`
+- Images: `/tmp/chatter_uploads/projects/images/`
+- Used when NAS is unavailable or connection fails
+- Directories created automatically on startup
+
+### File Upload Limits
+Configuration in `app/config.py`:
+- Max file size: 25MB (MAX_PROJECT_FILE_SIZE)
+- Allowed extensions: .py, .cpp, .h, .ino, .md, .txt, .pdf, .stl, .obj, .gcode, .json, .xml, .yaml, .yml
+- Max image size: 10MB (MAX_PROJECT_IMAGE_SIZE)
+- Allowed image types: .png, .jpg, .jpeg, .gif, .webp, .svg
+
+### Storage Implementation
+- Files stored with UUID filenames to prevent conflicts
+- Original filenames stored in database for display
+- Database stores only unique filename (not full path)
+- Upload tries NAS first, falls back to local storage
+- Download reads from NAS first, falls back to local storage
+- ZIP download includes files from NAS/local storage with original filenames
+
+### Deployment Steps for File Upload
+1. ✅ Configure NAS credentials in environment variables
+2. ✅ Ensure NAS share has appropriate permissions
+3. ✅ Verify smbprotocol is in requirements.txt
+4. ✅ Test NAS connectivity on startup
+5. ✅ Local fallback directories created automatically
+
+## Phase 3 - Integration & Enhancement (COMPLETED)
+
+### Extend Likes System (DONE)
+- [x] Modified Like model to support entity_type and entity_id
+- [x] Added entity-based like endpoints:
+  - POST /api/likes/entity - Create like on entity
+  - DELETE /api/likes/entity/{like_id} - Unlike entity
+  - GET /api/likes/entity/count - Get entity like count & user like status
+- [x] Created migration 017: extend_likes_comments_for_entities.sql
+- [x] Updated database.dbml with entity columns
+
+### Extend Comments System (DONE)
+- [x] Modified Comment model to support entity_type and entity_id
+- [x] Added entity-based comment endpoints:
+  - POST /interact/entity/comment - Create comment on entity
+  - GET /interact/entity/comments - Get all comments for entity (with threading)
+- [x] Migration 017 includes comment entity columns
+- [x] Updated database.dbml with entity columns
+
+### Entity Support Features
+- **Backward compatibility**: URL-based likes/comments continue to work
+- **Check constraints**: Ensure either URL or entity fields are provided (not both)
+- **Partial indexes**: Optimize entity-based lookups
+- **Unique constraints**: Prevent duplicate likes (per user, per URL or entity)
+- **Comment threading**: Replies supported for both URL and entity comments
+
+### Deployment Steps for Phase 3
+1. Run migration: `docker exec chatter-app python3 migrate.py`
+2. Verify migration 017 applied successfully
+3. Test URL-based likes/comments still work (backward compatibility)
+4. Test entity-based likes/comments on projects
+5. No breaking changes - existing data unaffected
+
+### ZIP Download (COMPLETED)
+- [x] Implemented GET /api/projects/{id}/download endpoint
+- [x] Auto-generated README.md with comprehensive project info
+- [x] Bundles all files and images into organized ZIP structure
+- [x] Tracks download count in project.download_count
+- [x] Permission checks (drafts author-only, published public)
+
+#### ZIP Structure
+```
+project_name_project.zip
+├── README.md (auto-generated)
+├── files/
+│   ├── code.ino
+│   ├── schematic.pdf
+│   └── ...
+└── images/
+    ├── photo1.jpg
+    ├── photo2.png
+    └── ...
+```
+
+#### README Contents
+The auto-generated README includes:
+- Project title and description
+- Author and dates (created, updated)
+- Tags
+- Background story (if provided)
+- Source code link (if provided)
+- Build instructions with all steps
+- Bill of Materials (formatted table)
+- Electronic Components (formatted table with datasheets)
+- Required Tools & Materials list
+- Additional Resources (links)
+- File listing with descriptions and sizes
+- Image listing with captions
+- Footer with attribution and kevsrobots.com link
+
+#### Features
+- In-memory ZIP generation (no temp files)
+- Safe filename generation from project title
+- Streaming response for efficient download
+- Automatic download counter increment
+- Markdown-formatted README for easy reading on GitHub/GitLab
 
 ## Phase 4 - Testing & Documentation (TODO)
 

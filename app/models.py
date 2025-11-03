@@ -43,22 +43,28 @@ class Like(SQLModel, table=True):
     __tablename__ = "like"  # Match existing table name in database
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    url: str = Field(index=True)  # Index for fast lookups by URL
+
+    # Support both URL-based and entity-based likes
+    url: Optional[str] = Field(default=None, index=True)  # For URL-based content (blog posts)
+    entity_type: Optional[str] = Field(default=None, max_length=50)  # e.g., "project", "tutorial"
+    entity_id: Optional[int] = Field(default=None)  # ID of the entity being liked
+
     user_id: int = Field(foreign_key="user.id", index=True)  # Index for fast lookups by user
     created_at: datetime = Field(default_factory=datetime.utcnow)  # Track when like was created
 
     user: Optional["User"] = Relationship(back_populates="likes")
 
-    class Config:
-        # Add unique constraint to prevent duplicate likes
-        # User can only like the same URL once
-        unique_together = [("url", "user_id")]
 
 class Comment(SQLModel, table=True):
     __tablename__ = "comment"  # Match existing table name in database
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    url: str = Field(index=True)  # Index for fast lookups by URL
+
+    # Support both URL-based and entity-based comments
+    url: Optional[str] = Field(default=None, index=True)  # For URL-based content (blog posts)
+    entity_type: Optional[str] = Field(default=None, max_length=50)  # e.g., "project", "tutorial"
+    entity_id: Optional[int] = Field(default=None)  # ID of the entity being commented on
+
     content: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     edited_at: Optional[datetime] = None  # Track when comment was last edited

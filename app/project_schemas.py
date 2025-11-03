@@ -131,14 +131,14 @@ class ProjectImageRead(BaseModel):
 class ProjectLinkCreate(BaseModel):
     url: str = Field(..., max_length=500)
     title: str = Field(..., max_length=255)
-    link_type: str = Field(..., regex="^(resource|video|course|article|related_project)$")
+    link_type: str = Field(..., pattern="^(resource|video|course|article|related_project)$")
     description: Optional[str] = None
 
 
 class ProjectLinkUpdate(BaseModel):
     url: Optional[str] = Field(None, max_length=500)
     title: Optional[str] = Field(None, max_length=255)
-    link_type: Optional[str] = Field(None, regex="^(resource|video|course|article|related_project)$")
+    link_type: Optional[str] = Field(None, pattern="^(resource|video|course|article|related_project)$")
     description: Optional[str] = None
 
 
@@ -153,13 +153,13 @@ class ProjectLinkRead(BaseModel):
 # Tool/Material Schemas
 class ToolMaterialCreate(BaseModel):
     name: str = Field(..., max_length=255)
-    tool_type: str = Field(..., regex="^(tool|material)$")
+    tool_type: str = Field(..., pattern="^(tool|material)$")
     notes: Optional[str] = None
 
 
 class ToolMaterialUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=255)
-    tool_type: Optional[str] = Field(None, regex="^(tool|material)$")
+    tool_type: Optional[str] = Field(None, pattern="^(tool|material)$")
     notes: Optional[str] = None
 
 

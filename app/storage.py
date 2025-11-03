@@ -16,9 +16,17 @@ from .config import (
     NAS_PASSWORD,
     NAS_SHARE_NAME,
     NAS_PROFILE_PICTURES_PATH,
+    NAS_PROJECT_FILES_PATH,
+    NAS_PROJECT_IMAGES_PATH,
     LOCAL_STORAGE_PATH,
+    LOCAL_PROJECT_FILES_PATH,
+    LOCAL_PROJECT_IMAGES_PATH,
     MAX_PROFILE_PICTURE_SIZE,
+    MAX_PROJECT_FILE_SIZE,
+    MAX_PROJECT_IMAGE_SIZE,
     ALLOWED_IMAGE_EXTENSIONS,
+    ALLOWED_PROJECT_FILE_EXTENSIONS,
+    ALLOWED_PROJECT_IMAGE_EXTENSIONS,
     PROFILE_PICTURE_DIMENSIONS,
 )
 
@@ -444,3 +452,195 @@ def delete_profile_picture(filename: str) -> bool:
         logger.warning(f"Could not delete from local storage: {e}")
 
     return success
+
+
+def save_file_to_nas(file_content: bytes, filename: str, nas_path: str) -> bool:
+    """
+    Generic function to save file to NAS storage at specified path.
+
+    Args:
+        file_content: File bytes to save
+        filename: Destination filename
+        nas_path: Path within NAS share (e.g., "projects/files")
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        from smbprotocol.connection import Connection
+        from smbprotocol.session import Session
+        from smbprotocol.tree import TreeConnect
+        from smbprotocol.open import (
+            Open,
+            CreateDisposition,
+            FilePipePrinterAccessMask,
+            ImpersonationLevel,
+            FileAttributes,
+            ShareAccess,
+            CreateOptions
+        )
+
+        # Connect to NAS
+        connection = Connection(uuid.uuid4(), NAS_HOST, 445)
+        connection.connect(timeout=10)
+
+        session = Session(connection, NAS_USERNAME, NAS_PASSWORD)
+        session.connect()
+
+        # Connect to share
+        tree = TreeConnect(session, f"\\\\{NAS_HOST}\\{NAS_SHARE_NAME}")
+        tree.connect()
+
+        # Ensure directory exists (create parent directories if needed)
+        try:
+            dir_open = Open(tree, nas_path)
+            dir_open.create(
+                ImpersonationLevel.Impersonation,
+                FilePipePrinterAccessMask.GENERIC_READ,
+                FileAttributes.FILE_ATTRIBUTE_DIRECTORY,
+                ShareAccess.FILE_SHARE_READ | ShareAccess.FILE_SHARE_WRITE,
+                CreateDisposition.FILE_OPEN_IF,
+                CreateOptions.FILE_DIRECTORY_FILE,
+                None
+            )
+            dir_open.close()
+            logger.info(f"Ensured directory exists: {nas_path}")
+        except Exception as e:
+            logger.warning(f"Could not ensure directory exists: {e}")
+
+        # Write file (use backslashes for SMB paths)
+        file_path = f"{nas_path}\\{filename}".replace("/", "\\")
+        file_open = Open(tree, file_path)
+        file_open.create(
+            ImpersonationLevel.Impersonation,
+            FilePipePrinterAccessMask.GENERIC_WRITE,
+            FileAttributes.FILE_ATTRIBUTE_NORMAL,
+            ShareAccess.FILE_SHARE_READ,
+            CreateDisposition.FILE_OVERWRITE_IF,
+            CreateOptions.FILE_NON_DIRECTORY_FILE,
+            None
+        )
+        file_open.write(file_content, 0)
+        file_open.close()
+
+        # Cleanup
+        tree.disconnect()
+        connection.disconnect()
+
+        logger.info(f"Successfully saved {filename} to NAS at {nas_path}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Failed to save to NAS at {nas_path}: {e}")
+        return False
+
+
+def read_file_from_nas(filename: str, nas_path: str) -> Optional[bytes]:
+    """
+    Generic function to read file from NAS storage at specified path.
+
+    Args:
+        filename: Filename to read
+        nas_path: Path within NAS share (e.g., "projects/files")
+
+    Returns:
+        File bytes if successful, None otherwise
+    """
+    try:
+        from smbprotocol.connection import Connection
+        from smbprotocol.session import Session
+        from smbprotocol.tree import TreeConnect
+        from smbprotocol.open import (
+            Open,
+            CreateDisposition,
+            FilePipePrinterAccessMask,
+            ImpersonationLevel,
+            FileAttributes,
+            ShareAccess,
+            CreateOptions
+        )
+
+        # Connect to NAS
+        connection = Connection(uuid.uuid4(), NAS_HOST, 445)
+        connection.connect(timeout=10)
+
+        session = Session(connection, NAS_USERNAME, NAS_PASSWORD)
+        session.connect()
+
+        # Connect to share
+        tree = TreeConnect(session, f"\\\\{NAS_HOST}\\{NAS_SHARE_NAME}")
+        tree.connect()
+
+        # Read file (use backslashes for SMB paths)
+        file_path = f"{nas_path}\\{filename}".replace("/", "\\")
+        file_open = Open(tree, file_path)
+        file_open.create(
+            ImpersonationLevel.Impersonation,
+            FilePipePrinterAccessMask.GENERIC_READ,
+            FileAttributes.FILE_ATTRIBUTE_NORMAL,
+            ShareAccess.FILE_SHARE_READ,
+            CreateDisposition.FILE_OPEN,
+            CreateOptions.FILE_NON_DIRECTORY_FILE,
+            None
+        )
+
+        # Read entire file
+        file_size = file_open.end_of_file
+        file_content = file_open.read(0, file_size)
+        file_open.close()
+
+        # Cleanup
+        tree.disconnect()
+        connection.disconnect()
+
+        logger.info(f"Successfully read {filename} from NAS at {nas_path}")
+        return file_content
+
+    except Exception as e:
+        logger.error(f"Failed to read from NAS at {nas_path}: {e}")
+        return None
+
+
+def save_file_to_local(file_content: bytes, filename: str, local_path: Path) -> bool:
+    """
+    Generic function to save file to local storage at specified path.
+
+    Args:
+        file_content: File bytes to save
+        filename: Destination filename
+        local_path: Local directory path
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        local_path.mkdir(parents=True, exist_ok=True)
+        file_path = local_path / filename
+        file_path.write_bytes(file_content)
+        logger.info(f"Saved {filename} to local storage at {file_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to save to local storage: {e}")
+        return False
+
+
+def read_file_from_local(filename: str, local_path: Path) -> Optional[bytes]:
+    """
+    Generic function to read file from local storage at specified path.
+
+    Args:
+        filename: Filename to read
+        local_path: Local directory path
+
+    Returns:
+        File bytes if successful, None otherwise
+    """
+    try:
+        file_path = local_path / filename
+        if not file_path.exists():
+            logger.warning(f"File not found in local storage: {file_path}")
+            return None
+        return file_path.read_bytes()
+    except Exception as e:
+        logger.error(f"Failed to read from local storage: {e}")
+        return None

@@ -19,15 +19,25 @@ class LikeCreate(BaseModel):
     url: str
 
 
+class EntityLikeCreate(BaseModel):
+    """Create a like for an entity (project, tutorial, etc.)"""
+    entity_type: str  # e.g., "project"
+    entity_id: int
+
+
 class LikeResponse(BaseModel):
     id: int
-    url: str
+    url: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[int] = None
     user_id: int
     created_at: datetime
 
 
 class LikeCountResponse(BaseModel):
-    url: str
+    url: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[int] = None
     like_count: int
     user_has_liked: bool
     user_like_id: Optional[int] = None
@@ -189,3 +199,118 @@ def refresh_most_liked_view(session: Session = Depends(get_session)):
     session.commit()
 
     return {"message": "Most liked content view refreshed successfully"}
+
+
+# Entity-based likes endpoints (for projects, etc.)
+
+@router.post("/entity", response_model=LikeResponse, status_code=status.HTTP_201_CREATED)
+def create_entity_like(
+    like_data: EntityLikeCreate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Like an entity (project, tutorial, etc.).
+    User must be authenticated.
+    Can only like the same entity once.
+    """
+    # Check if user has already liked this entity
+    existing_like = session.exec(
+        select(Like).where(
+            Like.entity_type == like_data.entity_type,
+            Like.entity_id == like_data.entity_id,
+            Like.user_id == current_user.id
+        )
+    ).first()
+
+    if existing_like:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You have already liked this content"
+        )
+
+    # Create new like
+    new_like = Like(
+        entity_type=like_data.entity_type,
+        entity_id=like_data.entity_id,
+        user_id=current_user.id
+    )
+    session.add(new_like)
+    session.commit()
+    session.refresh(new_like)
+
+    return new_like
+
+
+@router.delete("/entity/{like_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_entity_like(
+    like_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Unlike an entity (delete a like).
+    User must be authenticated and can only delete their own likes.
+    """
+    like = session.exec(select(Like).where(Like.id == like_id)).first()
+
+    if not like:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Like not found"
+        )
+
+    # Ensure user can only delete their own likes
+    if like.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only unlike your own likes"
+        )
+
+    session.delete(like)
+    session.commit()
+
+    return None
+
+
+@router.get("/entity/count", response_model=LikeCountResponse)
+def get_entity_like_count(
+    entity_type: str,
+    entity_id: int,
+    current_user: Optional[User] = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Get the like count for an entity and whether the current user has liked it.
+    Available to all users (logged in or not).
+    """
+    # Get total like count
+    like_count = session.exec(
+        select(func.count()).where(
+            Like.entity_type == entity_type,
+            Like.entity_id == entity_id
+        )
+    ).one()
+
+    # Check if current user has liked this (if authenticated)
+    user_has_liked = False
+    user_like_id = None
+    if current_user:
+        user_like = session.exec(
+            select(Like).where(
+                Like.entity_type == entity_type,
+                Like.entity_id == entity_id,
+                Like.user_id == current_user.id
+            )
+        ).first()
+        if user_like:
+            user_has_liked = True
+            user_like_id = user_like.id
+
+    return {
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "like_count": like_count,
+        "user_has_liked": user_has_liked,
+        "user_like_id": user_like_id
+    }

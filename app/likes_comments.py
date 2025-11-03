@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from .models import Like, Comment, CommentVersion, CommentLike
-from .schemas import LikeCreate, CommentCreate, CommentRead, CommentWithUser, CommentUpdate, CommentVersionRead, CommentLikers, CommentLikeUser
+from .schemas import LikeCreate, CommentCreate, EntityCommentCreate, CommentRead, CommentWithUser, CommentUpdate, CommentVersionRead, CommentLikers, CommentLikeUser
 from .database import get_session
 from .auth import get_current_user, get_optional_user
 from .models import User
@@ -733,3 +733,174 @@ def toggle_comment_like(
             "liked": True,
             "like_count": comment.like_count
         }
+
+
+# Entity-based comments endpoints (for projects, etc.)
+
+@router.post("/entity/comment", response_model=CommentRead)
+def create_entity_comment(
+    comment: EntityCommentCreate,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    """
+    Create a comment on an entity (project, tutorial, etc.).
+    Requires authentication.
+    """
+    from .moderation import validate_comment_content, sanitize_content
+
+    # Sanitize content
+    sanitized_content = sanitize_content(comment.content)
+
+    # Validate content
+    is_valid, error_message = validate_comment_content(sanitized_content)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_message)
+
+    # If this is a reply, verify parent comment exists
+    if comment.parent_comment_id:
+        parent = session.exec(select(Comment).where(Comment.id == comment.parent_comment_id)).first()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent comment not found")
+        if parent.is_removed or parent.is_hidden:
+            raise HTTPException(status_code=400, detail="Cannot reply to removed or hidden comment")
+
+    new_comment = Comment(
+        entity_type=comment.entity_type,
+        entity_id=comment.entity_id,
+        content=sanitized_content,
+        user_id=user.id,
+        parent_comment_id=comment.parent_comment_id
+    )
+    session.add(new_comment)
+
+    # Increment reply count on parent comment if this is a reply
+    if comment.parent_comment_id:
+        parent = session.get(Comment, comment.parent_comment_id)
+        if parent:
+            parent.reply_count += 1
+            session.add(parent)
+
+    session.commit()
+    session.refresh(new_comment)
+
+    logger.info(f"User {user.username} created comment on {comment.entity_type} {comment.entity_id}")
+
+    return new_comment
+
+
+@router.get("/entity/comments", response_model=List[CommentWithUser])
+def get_entity_comments(
+    entity_type: str,
+    entity_id: int,
+    session: Session = Depends(get_session),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """
+    Get all comments for an entity (project, tutorial, etc.).
+    Available to all users, but hidden and removed comments are excluded.
+    """
+    # Get all non-hidden, non-removed comments for this entity (excluding replies)
+    comments = session.exec(
+        select(Comment)
+        .where(
+            Comment.entity_type == entity_type,
+            Comment.entity_id == entity_id,
+            Comment.is_hidden == False,
+            Comment.is_removed == False,
+            Comment.parent_comment_id == None  # Only top-level comments
+        )
+        .order_by(Comment.created_at.desc())
+    ).all()
+
+    result = []
+    for comment in comments:
+        # Get user info
+        user = session.exec(select(User).where(User.id == comment.user_id)).first()
+        if not user:
+            continue
+
+        # Check if current user has liked this comment
+        user_has_liked = False
+        if current_user:
+            like = session.exec(
+                select(CommentLike).where(
+                    CommentLike.comment_id == comment.id,
+                    CommentLike.user_id == current_user.id
+                )
+            ).first()
+            user_has_liked = like is not None
+
+        # Get replies recursively
+        replies = _get_comment_replies(comment.id, session, current_user)
+
+        result.append(CommentWithUser(
+            id=comment.id,
+            entity_type=comment.entity_type,
+            entity_id=comment.entity_id,
+            content=comment.content,
+            created_at=comment.created_at,
+            edited_at=comment.edited_at,
+            user_id=user.id,
+            username=user.username,
+            profile_picture=user.profile_picture,
+            like_count=comment.like_count,
+            user_has_liked=user_has_liked,
+            parent_comment_id=comment.parent_comment_id,
+            reply_count=comment.reply_count,
+            replies=replies
+        ))
+
+    return result
+
+
+def _get_comment_replies(parent_id: int, session: Session, current_user: Optional[User]) -> List[CommentWithUser]:
+    """Helper function to recursively get all replies for a comment"""
+    replies = session.exec(
+        select(Comment)
+        .where(
+            Comment.parent_comment_id == parent_id,
+            Comment.is_hidden == False,
+            Comment.is_removed == False
+        )
+        .order_by(Comment.created_at.asc())
+    ).all()
+
+    result = []
+    for reply in replies:
+        user = session.exec(select(User).where(User.id == reply.user_id)).first()
+        if not user:
+            continue
+
+        # Check if current user has liked this reply
+        user_has_liked = False
+        if current_user:
+            like = session.exec(
+                select(CommentLike).where(
+                    CommentLike.comment_id == reply.id,
+                    CommentLike.user_id == current_user.id
+                )
+            ).first()
+            user_has_liked = like is not None
+
+        # Recursively get nested replies
+        nested_replies = _get_comment_replies(reply.id, session, current_user)
+
+        result.append(CommentWithUser(
+            id=reply.id,
+            entity_type=reply.entity_type,
+            entity_id=reply.entity_id,
+            content=reply.content,
+            created_at=reply.created_at,
+            edited_at=reply.edited_at,
+            user_id=user.id,
+            username=user.username,
+            profile_picture=user.profile_picture,
+            like_count=reply.like_count,
+            user_has_liked=user_has_liked,
+            parent_comment_id=reply.parent_comment_id,
+            reply_count=reply.reply_count,
+            replies=nested_replies
+        ))
+
+    return result

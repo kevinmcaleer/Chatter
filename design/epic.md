@@ -371,3 +371,504 @@ All URLs are normalized before storage:
 - @mentions in comments (#45)
 - Admin comment removal (#47)
 - User profiles with activity history (#44)
+
+---
+
+# User Projects - GitHub Issue #15
+
+## Feature Overview
+**As a** registered user
+**I want to** create and share maker projects
+**So that** I can showcase my work and help others replicate my builds
+
+## Core Functionality
+
+### Project Management
+Users can create, edit, publish, and delete projects with:
+- **Mandatory fields:** title, description, tags (at least 1)
+- **Optional fields:** background story, code repository link
+- **Draft mode:** Projects start as drafts visible only to the author
+- **Publishing:** Authors can publish/unpublish projects at any time
+- **Deletion:** Only authors can delete their own projects
+
+### Project Components
+
+#### Steps
+Ordered step-by-step instructions for building the project:
+- Step number (manual ordering)
+- Title (brief step name)
+- Content (detailed instructions in markdown)
+- Reordering capability to rearrange steps
+
+#### Bill of Materials (BOM)
+List of items needed with pricing:
+- Item name
+- Description
+- Quantity
+- Price in cents (supports currency conversion)
+- Custom ordering
+
+#### Electronic Components
+Reusable component library with autocomplete:
+- Component master list (name, description, datasheet URL)
+- Project-specific quantity and notes
+- Search/autocomplete with minimum 2 characters
+- Prevents duplicate components per project
+
+#### Tools & Materials
+Required tools and raw materials:
+- Tool/material name
+- Type (tool, material, or other)
+- Notes field for specifications
+
+#### External Links
+Curated links to related resources:
+- URL, title, description
+- Link type: video, course, article, blog, documentation, other
+- Helps users find additional learning resources
+
+#### Files
+Downloadable project files (max 25MB each):
+- Allowed types: .pdf, .zip, .stl, .step, .ino, .py, .cpp, .h, .json, .xml, .txt, .md
+- Stored with UUID filenames to prevent conflicts
+- Original filename preserved for display
+- File size tracked in database
+- Author can add title and description
+
+#### Images
+Project photo gallery (max 10MB each):
+- Allowed types: .jpg, .jpeg, .png, .gif, .webp
+- Multiple images per project
+- Optional captions
+- Primary image selection for project thumbnail
+- Automatic image URL generation
+
+### Discovery & Browsing
+
+#### Project Gallery
+Paginated grid view with filtering:
+- Filter by status (published only for public)
+- Filter by tag
+- Filter by author
+- Sort options: recent, popular, most liked, most viewed
+- Page-based pagination (default 20 per page)
+- Each card shows: title, author, tags, primary image, stats
+
+#### Project Detail View
+Complete project page with all information:
+- Project metadata (title, description, background, code link)
+- Author information
+- Statistics (views, likes, comments, downloads)
+- Tags
+- All child resources (steps, BOM, components, links, tools, files, images)
+- Organized tabs or sections for easy navigation
+
+### Permissions & Security
+
+#### Authorization Model
+- **Public access:** View published projects, browse gallery
+- **Authenticated users:** Create projects, like/comment on projects
+- **Project authors:** Full CRUD on their own projects and all child resources
+- **Draft protection:** Drafts only visible to author, not in public gallery
+
+#### File Upload Security
+- File size limits enforced (25MB files, 10MB images)
+- Extension whitelist validation
+- UUID-based filenames prevent overwrites and path traversal
+- Physical file deletion when database record deleted
+- Automatic directory creation on startup
+
+## API Architecture
+
+### REST Endpoints (37 total)
+
+All project endpoints use `/api` prefix.
+
+#### Core Project Operations (9 endpoints)
+- POST `/projects` - Create project (auth required)
+- GET `/projects/{id}` - Get project details
+- PUT `/projects/{id}` - Update project (author only)
+- DELETE `/projects/{id}` - Delete project (author only)
+- POST `/projects/{id}/publish` - Publish project (author only)
+- POST `/projects/{id}/unpublish` - Unpublish project (author only)
+- GET `/projects` - Gallery with filters (public)
+- GET `/projects/{id}/download` - Download complete project as ZIP with auto-generated README
+- OPTIONS `/projects` - CORS preflight
+
+#### Steps Management (5 endpoints)
+- POST `/projects/{id}/steps` - Add step
+- GET `/projects/{id}/steps` - List steps
+- PUT `/projects/{id}/steps/{step_id}` - Update step
+- DELETE `/projects/{id}/steps/{step_id}` - Delete step
+- PUT `/projects/{id}/steps/reorder` - Reorder steps (provide array of step IDs)
+
+#### Bill of Materials (4 endpoints)
+- POST `/projects/{id}/bom` - Add BOM item
+- GET `/projects/{id}/bom` - List BOM items
+- PUT `/projects/{id}/bom/{item_id}` - Update item
+- DELETE `/projects/{id}/bom/{item_id}` - Delete item
+
+#### Components (5 endpoints)
+- GET `/components/search?q={query}` - Search components (min 2 chars)
+- POST `/components` - Create reusable component
+- POST `/projects/{id}/components` - Add component to project
+- GET `/projects/{id}/components` - List project components
+- DELETE `/projects/{id}/components/{pc_id}` - Remove component
+
+#### Links (4 endpoints)
+- POST `/projects/{id}/links` - Add link
+- GET `/projects/{id}/links` - List links
+- PUT `/projects/{id}/links/{link_id}` - Update link
+- DELETE `/projects/{id}/links/{link_id}` - Delete link
+
+#### Tools & Materials (4 endpoints)
+- POST `/projects/{id}/tools` - Add tool/material
+- GET `/projects/{id}/tools` - List tools/materials
+- PUT `/projects/{id}/tools/{tool_id}` - Update tool/material
+- DELETE `/projects/{id}/tools/{tool_id}` - Delete tool/material
+
+#### Files (3 endpoints)
+- POST `/projects/{id}/files` - Upload file (multipart/form-data)
+- GET `/projects/{id}/files` - List files
+- DELETE `/projects/{id}/files/{file_id}` - Delete file
+
+#### Images (5 endpoints)
+- POST `/projects/{id}/images` - Upload image (multipart/form-data)
+- GET `/projects/{id}/images` - List images
+- PUT `/projects/{id}/images/{image_id}/primary` - Set primary image
+- DELETE `/projects/{id}/images/{image_id}` - Delete image
+
+### Request/Response Models
+
+#### Pydantic Schemas
+All endpoints use strongly-typed Pydantic schemas for validation:
+- `ProjectCreate`, `ProjectUpdate`, `ProjectDetail`, `ProjectSummary`
+- `ProjectStepCreate`, `ProjectStepUpdate`, `ProjectStepRead`
+- `BillOfMaterialCreate`, `BillOfMaterialUpdate`, `BillOfMaterialRead`
+- `ComponentCreate`, `ComponentRead`, `ProjectComponentCreate`, `ProjectComponentRead`
+- `ProjectLinkCreate`, `ProjectLinkUpdate`, `ProjectLinkRead`
+- `ToolMaterialCreate`, `ToolMaterialUpdate`, `ToolMaterialRead`
+- `ProjectFileRead`, `ProjectImageRead`
+- `ProjectGallery` (with pagination metadata)
+
+#### Validation Rules
+- Tags automatically converted to lowercase
+- Required fields enforced at API level
+- Optional fields can be null
+- Enums for status, link_type, tool_type
+- URL format validation
+- File extension validation
+- File size validation
+
+## Database Schema
+
+### Tables (11 total)
+
+#### `project` (core table)
+- `id` - Serial primary key
+- `title` - VARCHAR(255), indexed
+- `description` - TEXT
+- `author_id` - FK to user, indexed
+- `status` - VARCHAR(20), default 'draft', indexed
+- `background` - TEXT (optional)
+- `code_link` - VARCHAR(500) (optional)
+- `created_at` - Timestamp, indexed
+- `updated_at` - Timestamp
+- `primary_image_id` - FK to project_image (optional)
+- `view_count` - Integer, default 0
+- `download_count` - Integer, default 0
+- `like_count` - Integer, default 0
+- `comment_count` - Integer, default 0
+
+#### `project_tag`
+- `id` - Serial primary key
+- `project_id` - FK to project, cascade delete
+- `tag_name` - VARCHAR(50), lowercase
+- Composite index on (project_id, tag_name)
+
+#### `project_step`
+- `id` - Serial primary key
+- `project_id` - FK to project, cascade delete
+- `step_number` - Integer
+- `title` - VARCHAR(255)
+- `content` - TEXT
+- `created_at` - Timestamp
+- Unique constraint on (project_id, step_number)
+
+#### `bill_of_material`
+- `id` - Serial primary key
+- `project_id` - FK to project, cascade delete
+- `item_name` - VARCHAR(255)
+- `description` - TEXT (optional)
+- `quantity` - Integer
+- `price_cents` - Integer (optional)
+- `item_order` - Integer
+
+#### `component` (shared component library)
+- `id` - Serial primary key
+- `name` - VARCHAR(255), unique, indexed
+- `description` - TEXT (optional)
+- `datasheet_url` - VARCHAR(500) (optional)
+- `created_at` - Timestamp
+
+#### `project_component` (junction table)
+- `id` - Serial primary key
+- `project_id` - FK to project, cascade delete
+- `component_id` - FK to component
+- `quantity` - Integer
+- `notes` - TEXT (optional)
+- Unique constraint on (project_id, component_id)
+
+#### `project_file`
+- `id` - Serial primary key
+- `project_id` - FK to project, cascade delete
+- `filename` - VARCHAR(255) (original filename)
+- `file_path` - VARCHAR(500) (UUID-based path)
+- `file_size` - Integer (bytes)
+- `title` - VARCHAR(255)
+- `description` - TEXT (optional)
+- `uploaded_at` - Timestamp
+
+#### `project_image`
+- `id` - Serial primary key
+- `project_id` - FK to project, cascade delete
+- `filename` - VARCHAR(255) (original filename)
+- `image_path` - VARCHAR(500) (UUID-based path)
+- `caption` - TEXT (optional)
+- `uploaded_at` - Timestamp
+
+#### `project_link`
+- `id` - Serial primary key
+- `project_id` - FK to project, cascade delete
+- `url` - VARCHAR(500)
+- `title` - VARCHAR(255)
+- `link_type` - VARCHAR(50) (video, course, article, blog, documentation, other)
+- `description` - TEXT (optional)
+
+#### `tool_material`
+- `id` - Serial primary key
+- `project_id` - FK to project, cascade delete
+- `name` - VARCHAR(255)
+- `tool_type` - VARCHAR(50) (tool, material, other)
+- `notes` - TEXT (optional)
+
+### Relationships
+- One user has many projects
+- One project has many: tags, steps, BOM items, components, links, files, images, tools
+- Components are shared across projects (many-to-many via project_component)
+- All child resources cascade delete when project deleted
+
+### Indexes
+Strategic indexes for performance:
+- `project`: author_id, status, created_at, title
+- `project_tag`: (project_id, tag_name) composite
+- `project_step`: (project_id, step_number) unique composite
+- `component`: name unique index
+
+## File Storage
+
+### Storage Strategy - NAS with Local Fallback
+
+Project files use a robust dual-storage system matching the profile picture implementation:
+
+**Primary Storage: NAS (Network Attached Storage)**
+```
+NAS Share (SMB/CIFS):
+├── projects/
+│   ├── files/          # Project files (CAD, code, etc.)
+│   │   └── {uuid}.ext
+│   └── images/         # Project images
+│       └── {uuid}.ext
+```
+
+**Fallback Storage: Local Filesystem**
+```
+/tmp/chatter_uploads/projects/
+├── files/
+│   └── {uuid}.ext
+└── images/
+    └── {uuid}.ext
+```
+
+### Storage Implementation
+
+**Configuration** (`app/config.py`):
+- `NAS_HOST` - NAS server address
+- `NAS_USERNAME`, `NAS_PASSWORD` - SMB credentials (from environment)
+- `NAS_SHARE_NAME` - SMB share name
+- `NAS_PROJECT_FILES_PATH` = "projects/files"
+- `NAS_PROJECT_IMAGES_PATH` = "projects/images"
+- Local paths configured as fallback
+
+**Storage Functions** (`app/storage.py`):
+- `check_nas_connection()` - Verify NAS availability
+- `save_file_to_nas(content, filename, nas_path)` - Save to NAS
+- `read_file_from_nas(filename, nas_path)` - Read from NAS
+- `save_file_to_local(content, filename, local_path)` - Local fallback
+- `read_file_from_local(filename, local_path)` - Read from local
+
+**Upload Flow**:
+1. Generate UUID filename to prevent conflicts
+2. Try NAS connection with `check_nas_connection()`
+3. Save to NAS with `save_file_to_nas()`
+4. If NAS fails, save to local with `save_file_to_local()`
+5. Store only UUID filename in database (not full path)
+6. Original filename preserved in database for display
+
+**Download Flow** (ZIP generation):
+1. Try reading from NAS with `read_file_from_nas()`
+2. If NAS unavailable, read from local with `read_file_from_local()`
+3. Include file in ZIP with original filename
+4. Log warning if file not found in either location
+
+### Storage Management
+- UUID filenames prevent conflicts and path traversal attacks
+- Original filenames preserved in database
+- Database stores unique filename only (e.g., "abc123.stl")
+- Automatic NAS connection caching to reduce connection overhead
+- Graceful degradation to local storage when NAS unavailable
+- Error handling at every storage operation
+
+### File Limits
+- Files: 25MB maximum (`MAX_PROJECT_FILE_SIZE`)
+- Images: 10MB maximum (`MAX_PROJECT_IMAGE_SIZE`)
+- Allowed file extensions: .py, .cpp, .h, .ino, .md, .txt, .pdf, .stl, .obj, .gcode, .json, .xml, .yaml, .yml
+- Allowed image types: .png, .jpg, .jpeg, .gif, .webp, .svg
+- Extension checking before upload
+- Size validation before accepting upload
+
+### ZIP Download & README Generation
+
+Users can download complete projects as a single ZIP file with an auto-generated README.
+
+#### Features
+- **One-click download**: GET `/api/projects/{id}/download` returns complete project bundle
+- **Auto-generated README**: Comprehensive markdown documentation created on-the-fly
+- **Organized structure**: Files and images in separate subdirectories
+- **Download tracking**: Increments `project.download_count` on each download
+- **Efficient**: In-memory ZIP generation with streaming response (no temp files)
+- **Safe filenames**: Sanitizes project title for ZIP filename
+
+#### ZIP Structure
+```
+My_Robot_Project_project.zip
+├── README.md
+├── files/
+│   ├── arduino_code.ino
+│   ├── schematic.pdf
+│   └── 3d_model.stl
+└── images/
+    ├── finished_robot.jpg
+    ├── assembly_step1.png
+    └── wiring_diagram.png
+```
+
+#### README Contents
+The auto-generated `README.md` includes:
+1. **Header**: Title, description, author, dates, tags
+2. **Background**: Project backstory (if provided)
+3. **Source Code Link**: GitHub/GitLab link (if provided)
+4. **Build Instructions**: All steps with numbered sections
+5. **Bill of Materials**: Table with items, quantities, prices, descriptions
+6. **Electronic Components**: Table with components, quantities, datasheets
+7. **Tools & Materials**: Bulleted list of required tools
+8. **Additional Resources**: Links to videos, courses, articles, documentation
+9. **File Listing**: All included files with titles, descriptions, and sizes
+10. **Image Listing**: All included images with captions
+11. **Footer**: Attribution, download date, kevsrobots.com link
+
+#### Technical Details
+- Uses Python `zipfile` library for ZIP creation
+- `StreamingResponse` for efficient large file delivery
+- Markdown formatting for GitHub/GitLab compatibility
+- Proper table formatting for BOM and components
+- UTF-8 encoding for international characters
+- MIME type: `application/zip`
+- Content-Disposition header for download prompt
+
+## Technical Implementation
+
+### FastAPI Router
+- Modular router in `app/projects.py`
+- Registered with `/api` prefix in main application
+- All endpoints documented with OpenAPI schemas
+- Automatic request validation via Pydantic
+- Automatic response serialization
+
+### SQLModel Models
+- `app/project_models.py` contains all 10 models
+- Relationships defined with cascade deletes
+- Explicit table names match database schema
+- Type hints for all fields
+
+### Authentication Integration
+- Uses existing auth system from `app/auth.py`
+- `get_current_user` dependency for protected routes
+- `get_optional_user` for public routes with optional auth
+- JWT tokens in HTTP-only cookies
+
+### Logging
+- Structured logging for all operations
+- User actions logged with username
+- File operations logged with sizes
+- Errors logged with full context
+
+## Migration
+
+### Database Migration (016)
+- SQL script: `migrations/versions/016_create_user_projects.sql`
+- Creates all 11 tables with proper constraints
+- Creates all indexes
+- Updates schema_version table
+- Rollback script: `016_create_user_projects_rollback.sql`
+
+### Deployment Steps
+1. Run migration: `docker exec chatter-app python3 migrate.py`
+2. Verify tables created
+3. Ensure volume mount for `/app/data/projects/`
+4. Set permissions on host directory
+5. Rebuild and deploy Docker image
+
+## Completed Features
+
+### Phase 1 & 2 - Core Functionality (DONE)
+- ✅ Complete project CRUD operations
+- ✅ 37 REST API endpoints covering all project aspects
+- ✅ File and image upload with size limits and validation
+- ✅ Draft/publish workflow
+- ✅ Gallery with filtering, sorting, and pagination
+- ✅ Comprehensive child resource management (steps, BOM, components, links, tools)
+
+### Phase 3 - Integration (DONE)
+- ✅ Extended likes system to support entity-based likes (projects, etc.)
+- ✅ Extended comments system to support entity-based comments
+- ✅ Project download counts tracking
+- ✅ ZIP download with auto-generated README
+
+## Future Enhancements
+
+### Phase 4 - Advanced Features (TODO)
+- Project forking/cloning
+- Version history
+- Collaboration (multiple authors)
+- Project templates
+- Advanced search with full-text indexing
+- Recommended projects based on tags
+- User project collections/folders
+- User project activity feed
+
+## Testing Requirements
+- Unit tests for all 37 endpoints
+- Authorization tests (public, authenticated, author-only)
+- File upload validation tests
+- Database cascade delete tests
+- Error handling tests (404, 403, 400)
+- Code coverage minimum 80%
+
+## Success Metrics
+- Number of projects created
+- Number of published projects
+- Project view counts
+- File download counts
+- User engagement (likes, comments on projects)
+- Search and filter usage analytics

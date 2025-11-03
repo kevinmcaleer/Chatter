@@ -56,9 +56,18 @@ class CommentCreate(BaseModel):
     content: str
     parent_comment_id: Optional[int] = None  # For creating replies
 
+class EntityCommentCreate(BaseModel):
+    """Create a comment for an entity (project, tutorial, etc.)"""
+    entity_type: str  # e.g., "project"
+    entity_id: int
+    content: str
+    parent_comment_id: Optional[int] = None  # For creating replies
+
 class CommentRead(BaseModel):
     id: int
-    url: str
+    url: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[int] = None
     content: str
     created_at: datetime
     edited_at: Optional[datetime] = None
@@ -66,7 +75,9 @@ class CommentRead(BaseModel):
 
 class CommentWithUser(BaseModel):
     id: int
-    url: str
+    url: Optional[str] = None
+    entity_type: Optional[str] = None
+    entity_id: Optional[int] = None
     content: str
     created_at: datetime
     edited_at: Optional[datetime] = None

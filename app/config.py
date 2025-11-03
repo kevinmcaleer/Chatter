@@ -28,10 +28,16 @@ NAS_USERNAME = os.getenv("NAS_USERNAME")  # Must be set in environment
 NAS_PASSWORD = os.getenv("NAS_PASSWORD")  # Must be set in environment
 NAS_SHARE_NAME = os.getenv("NAS_SHARE_NAME", "chatter")  # SMB share name
 NAS_PROFILE_PICTURES_PATH = "profile_pictures"  # Path within the share
+NAS_PROJECT_FILES_PATH = "projects/files"  # Path for project files within the share
+NAS_PROJECT_IMAGES_PATH = "projects/images"  # Path for project images within the share
 
 # Local fallback storage (if NAS is unavailable)
 LOCAL_STORAGE_PATH = Path("/tmp/chatter_uploads")
 LOCAL_STORAGE_PATH.mkdir(parents=True, exist_ok=True)
+LOCAL_PROJECT_FILES_PATH = LOCAL_STORAGE_PATH / "projects" / "files"
+LOCAL_PROJECT_IMAGES_PATH = LOCAL_STORAGE_PATH / "projects" / "images"
+LOCAL_PROJECT_FILES_PATH.mkdir(parents=True, exist_ok=True)
+LOCAL_PROJECT_IMAGES_PATH.mkdir(parents=True, exist_ok=True)
 
 # Image upload constraints
 MAX_PROFILE_PICTURE_SIZE = 5 * 1024 * 1024  # 5MB
@@ -40,3 +46,9 @@ PROFILE_PICTURE_DIMENSIONS = (400, 400)  # Max width, max height
 
 # URL configuration
 PROFILE_PICTURE_URL_BASE = "/profile_pictures"  # URL path to serve images
+
+# Project file configuration
+MAX_PROJECT_FILE_SIZE = 25 * 1024 * 1024  # 25MB for files
+MAX_PROJECT_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB for images
+ALLOWED_PROJECT_FILE_EXTENSIONS = {".py", ".cpp", ".h", ".ino", ".md", ".txt", ".pdf", ".stl", ".obj", ".gcode", ".json", ".xml", ".yaml", ".yml"}
+ALLOWED_PROJECT_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}

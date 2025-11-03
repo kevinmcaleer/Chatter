@@ -37,13 +37,32 @@ table accountlog {
 
 table like {
   id int [pk, increment]
-  url varchar [not null]
+  url varchar // For URL-based content (blog posts) - nullable
+  entity_type varchar(50) // For entity-based content (e.g., "project") - nullable
+  entity_id int // ID of entity being liked - nullable
   user_id int [not null]
+  created_at timestamp [not null, default: `now()`]
+
+  Note: '''
+  Either url OR (entity_type + entity_id) must be provided, not both.
+  Enforced via check constraint: like_target_check
+  Unique constraints:
+  - idx_like_user_url: unique (user_id, url) WHERE url IS NOT NULL
+  - idx_like_user_entity: unique (user_id, entity_type, entity_id) WHERE entity_type IS NOT NULL
+  '''
+
+  Indexes {
+    user_id
+    url
+    (entity_type, entity_id) [where: 'entity_type IS NOT NULL']
+  }
 }
 
 table comment {
   id int [pk, increment]
-  url varchar [not null]
+  url varchar // For URL-based content (blog posts) - nullable
+  entity_type varchar(50) // For entity-based content (e.g., "project") - nullable
+  entity_id int // ID of entity being commented on - nullable
   content varchar [not null]
   created_at timestamp [default: `now()`]
   edited_at timestamp // When comment was last edited
@@ -56,6 +75,22 @@ table comment {
   reviewed_by int // Admin who reviewed the comment
   is_removed boolean [default: false] // User soft-deleted their own comment
   removed_at timestamp // When comment was removed by author
+  like_count int [default: 0] // Denormalized like count for efficient sorting
+  parent_comment_id int // For comment threading/replies
+  reply_count int [default: 0] // Denormalized count of direct replies
+
+  Note: '''
+  Either url OR (entity_type + entity_id) must be provided, not both.
+  Enforced via check constraint: comment_target_check
+  '''
+
+  Indexes {
+    user_id
+    url
+    (entity_type, entity_id) [where: 'entity_type IS NOT NULL']
+    parent_comment_id
+    like_count
+  }
 }
 
 table commentversion {
