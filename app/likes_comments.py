@@ -704,8 +704,8 @@ def get_comment_likers(
     # Get users who liked this comment (most recent first, limit 10)
     statement = (
         select(CommentLike, User)
+        .join(User, CommentLike.user_id == User.id)
         .where(CommentLike.comment_id == comment_id)
-        .where(CommentLike.user_id == User.id)
         .order_by(CommentLike.created_at.desc())
         .limit(10)
     )
