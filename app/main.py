@@ -10,6 +10,7 @@ from .likes_comments import router as lc_router
 from .accounts import router as accounts_router
 from .page_views import router as page_views_router
 from .profile import router as profile_router
+from .projects import router as projects_router
 from dotenv import load_dotenv
 import os
 import logging
@@ -68,6 +69,7 @@ app.include_router(auth_router)
 app.include_router(accounts_router, prefix="/accounts")
 app.include_router(page_views_router, prefix="/analytics")
 app.include_router(profile_router)
+app.include_router(projects_router, prefix="/api")
 
 @app.on_event("startup")
 def on_startup():
