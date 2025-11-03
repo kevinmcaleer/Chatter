@@ -62,10 +62,31 @@ def comment_url(comment: CommentCreate, session: Session = Depends(get_session),
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_message)
 
+    # If this is a reply, verify parent comment exists
+    if comment.parent_comment_id:
+        parent = session.exec(select(Comment).where(Comment.id == comment.parent_comment_id)).first()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent comment not found")
+        if parent.is_removed or parent.is_hidden:
+            raise HTTPException(status_code=400, detail="Cannot reply to removed or hidden comment")
+
     # Strip leading slash from URL to normalize storage
     url = comment.url.lstrip('/')
-    new_comment = Comment(url=url, content=sanitized_content, user_id=user.id)
+    new_comment = Comment(
+        url=url,
+        content=sanitized_content,
+        user_id=user.id,
+        parent_comment_id=comment.parent_comment_id
+    )
     session.add(new_comment)
+
+    # Increment reply count on parent comment if this is a reply
+    if comment.parent_comment_id:
+        parent = session.get(Comment, comment.parent_comment_id)
+        if parent:
+            parent.reply_count += 1
+            session.add(parent)
+
     session.commit()
     session.refresh(new_comment)
     return new_comment
@@ -122,11 +143,12 @@ def get_comments_with_usernames(
     Get comments for a URL with user information.
     Supports sorting by 'recent' (default) or 'popular' (by like count).
     Includes like_count and user_has_liked for each comment.
+    Returns nested structure with replies (Issue #43).
     """
     # Strip leading slash from URL to normalize storage
     url = url.lstrip('/')
 
-    # Build query based on sort parameter
+    # Fetch ALL comments for this URL (both top-level and replies)
     statement = (
         select(Comment, User)
         .where(Comment.url == url)
@@ -135,13 +157,8 @@ def get_comments_with_usernames(
         .where(Comment.is_removed == False)  # Exclude removed comments
     )
 
-    if sort == "popular":
-        # Sort by like_count (desc), then by created_at (desc) for ties
-        statement = statement.order_by(Comment.like_count.desc(), Comment.created_at.desc())
-    else:
-        # Default: most recent first
-        statement = statement.order_by(Comment.created_at.desc())
-
+    # Note: We fetch all comments unsorted, then organize into hierarchy
+    # Sorting is applied only to top-level comments
     results = session.exec(statement).all()
 
     # Check which comments the current user has liked (if authenticated)
@@ -154,8 +171,10 @@ def get_comments_with_usernames(
         ).all()
         user_liked_comment_ids = set(user_likes)
 
-    comments = [
-        CommentWithUser(
+    # Build a dict of all comments by ID
+    all_comments_dict = {}
+    for comment, user in results:
+        comment_data = CommentWithUser(
             id=comment.id,
             url=comment.url,
             content=comment.content,
@@ -165,11 +184,39 @@ def get_comments_with_usernames(
             username=user.username,
             profile_picture=user.profile_picture,
             like_count=comment.like_count,
-            user_has_liked=comment.id in user_liked_comment_ids
+            user_has_liked=comment.id in user_liked_comment_ids,
+            parent_comment_id=comment.parent_comment_id,
+            reply_count=comment.reply_count,
+            replies=[]
         )
-        for comment, user in results
-    ]
-    return comments
+        all_comments_dict[comment.id] = comment_data
+
+    # Organize into hierarchy: attach replies to their parents
+    top_level_comments = []
+    for comment_id, comment_data in all_comments_dict.items():
+        if comment_data.parent_comment_id is None:
+            # Top-level comment
+            top_level_comments.append(comment_data)
+        else:
+            # Reply - attach to parent
+            parent = all_comments_dict.get(comment_data.parent_comment_id)
+            if parent:
+                parent.replies.append(comment_data)
+
+    # Sort replies within each comment (always chronological - oldest first)
+    for comment in all_comments_dict.values():
+        if comment.replies:
+            comment.replies.sort(key=lambda r: r.created_at)
+
+    # Sort top-level comments based on sort parameter
+    if sort == "popular":
+        # Sort by like_count (desc), then by created_at (desc) for ties
+        top_level_comments.sort(key=lambda c: (-c.like_count, -c.created_at.timestamp()))
+    else:
+        # Default: most recent first
+        top_level_comments.sort(key=lambda c: -c.created_at.timestamp())
+
+    return top_level_comments
 
 @router.options("/comments/{comment_id}")
 def comment_id_options(comment_id: int):

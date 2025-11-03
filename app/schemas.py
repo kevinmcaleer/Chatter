@@ -54,6 +54,7 @@ class LikeCreate(BaseModel):
 class CommentCreate(BaseModel):
     url: str
     content: str
+    parent_comment_id: Optional[int] = None  # For creating replies
 
 class CommentRead(BaseModel):
     id: int
@@ -74,6 +75,9 @@ class CommentWithUser(BaseModel):
     profile_picture: Optional[str] = None  # Profile picture filename
     like_count: int = 0  # Number of likes on this comment
     user_has_liked: bool = False  # Whether current user has liked this comment
+    parent_comment_id: Optional[int] = None  # Parent comment ID if this is a reply
+    reply_count: int = 0  # Number of direct replies
+    replies: list['CommentWithUser'] = []  # Nested replies (recursive)
 
 class CommentUpdate(BaseModel):
     content: str

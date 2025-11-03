@@ -71,10 +71,29 @@ class Comment(SQLModel, table=True):
     # Like count (Issue #69) - denormalized for efficient sorting
     like_count: int = Field(default=0, index=True)  # Number of likes this comment has received
 
+    # Reply/threading fields (Issue #43)
+    parent_comment_id: Optional[int] = Field(default=None, foreign_key="comment.id", index=True)  # Parent comment for replies
+    reply_count: int = Field(default=0)  # Denormalized count of direct replies
+
     user: Optional["User"] = Relationship(back_populates="comments", sa_relationship_kwargs={"foreign_keys": "[Comment.user_id]"})
     reviewer: Optional["User"] = Relationship(sa_relationship_kwargs={"foreign_keys": "[Comment.reviewed_by]", "overlaps": "reviewed_comments"})
     versions: List["CommentVersion"] = Relationship(back_populates="comment", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     likes: List["CommentLike"] = Relationship(back_populates="comment", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    # Parent-child relationships for threading
+    parent: Optional["Comment"] = Relationship(
+        sa_relationship_kwargs={
+            "remote_side": "[Comment.id]",
+            "foreign_keys": "[Comment.parent_comment_id]"
+        }
+    )
+    replies: List["Comment"] = Relationship(
+        back_populates="parent",
+        sa_relationship_kwargs={
+            "foreign_keys": "[Comment.parent_comment_id]",
+            "cascade": "all, delete-orphan"
+        }
+    )
 
 class CommentVersion(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
