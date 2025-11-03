@@ -8,6 +8,9 @@ from .models import User
 from typing import List, Optional
 from sqlalchemy import func
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -711,7 +714,7 @@ def get_comment_likers(
     )
     results = session.exec(statement).all()
 
-    print(f"[DEBUG] get_comment_likers: comment_id={comment_id}, found {len(results)} likers")
+    logger.info(f"get_comment_likers: comment_id={comment_id}, found {len(results)} likers")
 
     likers = [
         CommentLikeUser(
@@ -722,7 +725,7 @@ def get_comment_likers(
         for comment_like, user in results
     ]
 
-    print(f"[DEBUG] get_comment_likers: returning {len(likers)} likers")
+    logger.info(f"get_comment_likers: returning {len(likers)} likers")
 
     return CommentLikers(
         comment_id=comment_id,
