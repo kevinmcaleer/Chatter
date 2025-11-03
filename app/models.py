@@ -1,10 +1,10 @@
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
-from sqlmodel import SQLModel, Field, Relationship
 
 if TYPE_CHECKING:
     from .models import User
+    from .project_models import Project
 
 class User(SQLModel, table=True):
     __tablename__ = "user"  # Match existing table name in database
@@ -37,6 +37,7 @@ class User(SQLModel, table=True):
     reviewed_comments: List["Comment"] = Relationship(sa_relationship_kwargs={"foreign_keys": "[Comment.reviewed_by]"})
     account_logs: List["AccountLog"] = Relationship(back_populates="user", sa_relationship_kwargs={"foreign_keys": "[AccountLog.user_id]", "cascade": "all, delete-orphan"})
     changed_logs: List["AccountLog"] = Relationship(back_populates="changed_by_user", sa_relationship_kwargs={"foreign_keys": "[AccountLog.changed_by]"})
+    projects: List["Project"] = Relationship(back_populates="author", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 class Like(SQLModel, table=True):
     __tablename__ = "like"  # Match existing table name in database
