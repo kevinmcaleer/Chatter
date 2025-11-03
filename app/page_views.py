@@ -64,86 +64,12 @@ def log_page_view(
 
     return {"message": "Page view logged", "url": url}
 
-@router.get("/page-views/{url:path}", response_model=PageViewStats)
-def get_page_view_stats(
-    url: str,
-    session: Session = Depends(get_session)
-):
-    """
-    Get page view statistics for a URL
-    Returns total views, unique visitors, and formatted count
-    Available to all users (no authentication required)
-    Queries live pageview table for real-time accuracy
-    """
-    # Strip leading slash to match storage format
-    url = url.lstrip('/')
 
-    # Query live pageview table directly for real-time counts
-    view_count = session.exec(
-        select(func.count()).where(PageView.url == url)
-    ).one()
-
-    unique_visitors = session.exec(
-        select(func.count(func.distinct(PageView.ip_address))).where(PageView.url == url)
-    ).one()
-
-    last_viewed_at = session.exec(
-        select(func.max(PageView.viewed_at)).where(PageView.url == url)
-    ).one()
-
-    return PageViewStats(
-        url=url,
-        view_count=view_count,
-        view_count_formatted=format_count(view_count),
-        unique_visitors=unique_visitors,
-        last_viewed_at=last_viewed_at
-    )
-
-@router.post("/refresh-page-view-counts")
-def refresh_page_view_counts(session: Session = Depends(get_session)):
-    """
-    Refresh the materialized view for page view counts
-    Should be called periodically to keep the view up to date
-    """
-    try:
-        session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY page_view_counts"))
-        session.commit()
-        return {"message": "Page view counts refreshed successfully"}
-    except Exception as e:
-        return {"message": f"Error refreshing view: {str(e)}", "status": "error"}
-
-@router.get("/most-viewed")
-def get_most_viewed(limit: int = 10, session: Session = Depends(get_session)):
-    """
-    Get the most viewed pages from live pageview table
-    Returns URLs sorted by view count (highest to lowest)
-    """
-    # Query live pageview table for real-time most viewed pages
-    query = text("""
-        SELECT
-            url,
-            COUNT(*) as view_count,
-            COUNT(DISTINCT ip_address) as unique_visitors,
-            MAX(viewed_at) as last_viewed_at
-        FROM pageview
-        GROUP BY url
-        ORDER BY view_count DESC
-        LIMIT :limit
-    """)
-
-    result = session.execute(query, {"limit": limit})
-
-    return [
-        {
-            "url": row[0],
-            "view_count": row[1],
-            "view_count_formatted": format_count(row[1]),
-            "unique_visitors": row[2],
-            "last_viewed_at": row[3].isoformat() if row[3] else None
-        }
-        for row in result
-    ]
-
+# ============================================
+# Timeline Endpoint (Must come before general /page-views/{url:path})
+# ============================================
+# NOTE: More specific routes must be registered before less specific ones
+# because FastAPI matches routes in order and {url:path} matches everything
 
 @router.options("/page-views/{url:path}/timeline")
 def page_view_timeline_options(url: str):
@@ -273,3 +199,90 @@ def get_page_view_timeline(
         data=data_points,
         total_views=total_views
     )
+
+
+# ============================================
+# General Page View Stats (Must come after /timeline route)
+# ============================================
+
+@router.get("/page-views/{url:path}", response_model=PageViewStats)
+def get_page_view_stats(
+    url: str,
+    session: Session = Depends(get_session)
+):
+    """
+    Get page view statistics for a URL
+    Returns total views, unique visitors, and formatted count
+    Available to all users (no authentication required)
+    Queries live pageview table for real-time accuracy
+    """
+    # Strip leading slash to match storage format
+    url = url.lstrip('/')
+
+    # Query live pageview table directly for real-time counts
+    view_count = session.exec(
+        select(func.count()).where(PageView.url == url)
+    ).one()
+
+    unique_visitors = session.exec(
+        select(func.count(func.distinct(PageView.ip_address))).where(PageView.url == url)
+    ).one()
+
+    last_viewed_at = session.exec(
+        select(func.max(PageView.viewed_at)).where(PageView.url == url)
+    ).one()
+
+    return PageViewStats(
+        url=url,
+        view_count=view_count,
+        view_count_formatted=format_count(view_count),
+        unique_visitors=unique_visitors,
+        last_viewed_at=last_viewed_at
+    )
+
+
+@router.post("/refresh-page-view-counts")
+def refresh_page_view_counts(session: Session = Depends(get_session)):
+    """
+    Refresh the materialized view for page view counts
+    Should be called periodically to keep the view up to date
+    """
+    try:
+        session.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY page_view_counts"))
+        session.commit()
+        return {"message": "Page view counts refreshed successfully"}
+    except Exception as e:
+        return {"message": f"Error refreshing view: {str(e)}", "status": "error"}
+
+
+@router.get("/most-viewed")
+def get_most_viewed(limit: int = 10, session: Session = Depends(get_session)):
+    """
+    Get the most viewed pages from live pageview table
+    Returns URLs sorted by view count (highest to lowest)
+    """
+    # Query live pageview table for real-time most viewed pages
+    query = text("""
+        SELECT
+            url,
+            COUNT(*) as view_count,
+            COUNT(DISTINCT ip_address) as unique_visitors,
+            MAX(viewed_at) as last_viewed_at
+        FROM pageview
+        GROUP BY url
+        ORDER BY view_count DESC
+        LIMIT :limit
+    """)
+
+    result = session.execute(query, {"limit": limit})
+
+    return [
+        {
+            "url": row[0],
+            "view_count": row[1],
+            "view_count_formatted": format_count(row[1]),
+            "unique_visitors": row[2],
+            "last_viewed_at": row[3].isoformat() if row[3] else None
+        }
+        for row in result
+    ]
