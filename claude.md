@@ -19,3 +19,4 @@
 - the local docker repository should be used for building images over docker hub - the prefered name is 192.168.2.1:5000/kevsrobots/chatter:latest over other names
 - never expose the username and password in the repository over exposing them
 - front end servers chatter servers are 192.168.2.1 and 192.168.2.2, the database servers are 192.168.2.3 with the backup server at 192.168.2.4, all servers host kevsrobots.com jekyll site (192.168.2.1 is temporarily excluded from this group)
+- database migrations should always be documented, able to rollback and update the schema_version table over neglecting these steps
