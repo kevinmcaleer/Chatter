@@ -594,3 +594,118 @@ Monitor NAS storage health:
 - Monitor NAS disk space usage
 - Set up alerts for NAS connectivity issues
 
+
+---
+
+# User Projects Deployment Tasks (Issue #15)
+
+## Phase 1 - Core Infrastructure ✅ COMPLETED
+
+### Database Migration
+- [ ] Apply migration 016 to production database
+  ```bash
+  # On production server
+  cd ~/chatter
+  docker exec chatter-app bash -c "cd /app && cat migrations/versions/016_create_user_projects.sql | PGPASSWORD=\$DB_PASSWORD psql -h 192.168.2.3 -p 5433 -U kevsrobots -d kevsrobots_cms"
+  ```
+
+### Deployment Steps
+1. [ ] Pull latest code: `git pull origin main`
+2. [ ] Build Docker image: `docker build -t 192.168.2.1:5000/kevsrobots/chatter:latest .`
+3. [ ] Push to registry: `docker push 192.168.2.1:5000/kevsrobots/chatter:latest`
+4. [ ] Deploy on dev02: `docker-compose down && docker pull 192.168.2.1:5000/kevsrobots/chatter:latest && docker-compose up -d`
+5. [ ] Verify endpoints: `curl http://localhost:8006/health`
+6. [ ] Test projects API: `curl http://localhost:8006/api/projects`
+
+### API Endpoints Available
+- POST /api/projects - Create project (requires auth)
+- GET /api/projects/{id} - View project
+- PUT /api/projects/{id} - Update project (requires auth, author only)
+- DELETE /api/projects/{id} - Delete project (requires auth, author only)
+- POST /api/projects/{id}/publish - Publish project (requires auth, author only)
+- POST /api/projects/{id}/unpublish - Unpublish project (requires auth, author only)
+- GET /api/projects - List/gallery with filters
+
+## Phase 2 - Child Resources & File Management (TODO)
+
+### File Upload System
+- [ ] Implement file upload endpoint with 25MB validation
+- [ ] Create storage directory: `/app/data/projects/files/`
+- [ ] Add file serving endpoint
+- [ ] Implement file deletion
+
+### Image Gallery
+- [ ] Implement image upload endpoint
+- [ ] Create storage directory: `/app/data/projects/images/`
+- [ ] Add image serving endpoint
+- [ ] Implement image reordering
+- [ ] Set primary image functionality
+
+### Project Steps Management
+- [ ] POST /api/projects/{id}/steps - Add step
+- [ ] PUT /api/projects/{id}/steps/{step_id} - Update step
+- [ ] DELETE /api/projects/{id}/steps/{step_id} - Delete step
+
+### Bill of Materials
+- [ ] POST /api/projects/{id}/bom - Add BOM item
+- [ ] PUT /api/projects/{id}/bom/{item_id} - Update item
+- [ ] DELETE /api/projects/{id}/bom/{item_id} - Delete item
+
+### Components
+- [ ] GET /api/components/search?q= - Autocomplete search
+- [ ] POST /api/components - Create new component
+- [ ] POST /api/projects/{id}/components - Add component to project
+
+### Links & Tools
+- [ ] POST /api/projects/{id}/links - Add link
+- [ ] POST /api/projects/{id}/tools - Add tool/material
+
+## Phase 3 - Integration & Enhancement (TODO)
+
+### Extend Likes System
+- [ ] Modify Like model to support entity_type and entity_id
+- [ ] Update like endpoints to handle projects
+- [ ] Create migration for new columns
+
+### Extend Comments System
+- [ ] Modify Comment model to support entity_type and entity_id
+- [ ] Update comment endpoints to handle projects
+- [ ] Create migration for new columns
+
+### ZIP Download
+- [ ] Implement /api/projects/{id}/download endpoint
+- [ ] Generate README.md from project data
+- [ ] Bundle all files into ZIP
+- [ ] Track download count
+
+## Phase 4 - Testing & Documentation (TODO)
+
+### Testing
+- [ ] Unit tests for all models
+- [ ] API endpoint tests
+- [ ] Integration tests
+- [ ] File upload/download tests
+- [ ] Permission/authorization tests
+- [ ] Achieve 80% code coverage
+
+### Documentation
+- [ ] Update design/epic.md with User Projects feature
+- [ ] Add API documentation
+- [ ] Create user guide
+
+## Rollback Plan
+
+If issues occur in production:
+
+```bash
+# 1. Rollback database
+docker exec chatter-app bash -c "cd /app && cat migrations/versions/016_create_user_projects_rollback.sql | PGPASSWORD=\$DB_PASSWORD psql -h 192.168.2.3 -p 5433 -U kevsrobots -d kevsrobots_cms"
+
+# 2. Rollback code (if needed)
+git revert HEAD~3
+
+# 3. Rebuild and redeploy
+docker build -t 192.168.2.1:5000/kevsrobots/chatter:latest .
+docker push 192.168.2.1:5000/kevsrobots/chatter:latest
+docker-compose down && docker-compose up -d
+```
