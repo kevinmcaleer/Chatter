@@ -112,19 +112,47 @@ def get_comment_versions(
     return result
 
 @router.get("/comments/{url:path}", response_model=List[CommentWithUser])
-def get_comments_with_usernames(url: str, session: Session = Depends(get_session)):
+def get_comments_with_usernames(
+    url: str,
+    sort: str = "recent",  # "recent" or "popular"
+    session: Session = Depends(get_session),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """
+    Get comments for a URL with user information.
+    Supports sorting by 'recent' (default) or 'popular' (by like count).
+    Includes like_count and user_has_liked for each comment.
+    """
     # Strip leading slash from URL to normalize storage
     url = url.lstrip('/')
 
+    # Build query based on sort parameter
     statement = (
         select(Comment, User)
         .where(Comment.url == url)
         .where(Comment.user_id == User.id)
         .where(Comment.is_hidden == False)  # Only show non-hidden comments
         .where(Comment.is_removed == False)  # Exclude removed comments
-        .order_by(Comment.created_at.desc())
     )
+
+    if sort == "popular":
+        # Sort by like_count (desc), then by created_at (desc) for ties
+        statement = statement.order_by(Comment.like_count.desc(), Comment.created_at.desc())
+    else:
+        # Default: most recent first
+        statement = statement.order_by(Comment.created_at.desc())
+
     results = session.exec(statement).all()
+
+    # Check which comments the current user has liked (if authenticated)
+    user_liked_comment_ids = set()
+    if current_user:
+        user_likes = session.exec(
+            select(CommentLike.comment_id)
+            .where(CommentLike.user_id == current_user.id)
+            .where(CommentLike.comment_id.in_([c.id for c, _ in results]))
+        ).all()
+        user_liked_comment_ids = set(user_likes)
 
     comments = [
         CommentWithUser(
@@ -136,6 +164,8 @@ def get_comments_with_usernames(url: str, session: Session = Depends(get_session
             user_id=user.id,
             username=user.username,
             profile_picture=user.profile_picture,
+            like_count=comment.like_count,
+            user_has_liked=comment.id in user_liked_comment_ids
         )
         for comment, user in results
     ]
@@ -541,3 +571,104 @@ def clear_comment_flags(
     session.commit()
 
     return {"message": "Comment flags cleared successfully"}
+
+
+# ============================================
+# Comment Like Endpoints (Issue #69)
+# ============================================
+
+from .models import CommentLike
+from .schemas import CommentLikers, CommentLikeUser
+
+@router.options("/comments/{comment_id}/like")
+def comment_like_options(comment_id: int):
+    """Handle preflight OPTIONS request for comment like"""
+    return {}
+
+
+@router.post("/comments/{comment_id}/like")
+def toggle_comment_like(
+    comment_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    """
+    Like or unlike a comment (toggle).
+    Returns updated like count and whether user now likes the comment.
+    """
+    # Check if comment exists
+    comment = session.exec(select(Comment).where(Comment.id == comment_id)).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # Check if user has already liked this comment
+    existing_like = session.exec(
+        select(CommentLike).where(
+            CommentLike.comment_id == comment_id,
+            CommentLike.user_id == user.id
+        )
+    ).first()
+
+    if existing_like:
+        # Unlike - remove the like
+        session.delete(existing_like)
+        comment.like_count = max(0, comment.like_count - 1)  # Prevent negative counts
+        session.add(comment)
+        session.commit()
+        return {
+            "message": "Comment unliked",
+            "liked": False,
+            "like_count": comment.like_count
+        }
+    else:
+        # Like - add the like
+        new_like = CommentLike(comment_id=comment_id, user_id=user.id)
+        session.add(new_like)
+        comment.like_count += 1
+        session.add(comment)
+        session.commit()
+        return {
+            "message": "Comment liked",
+            "liked": True,
+            "like_count": comment.like_count
+        }
+
+
+@router.get("/comments/{comment_id}/likers", response_model=CommentLikers)
+def get_comment_likers(
+    comment_id: int,
+    session: Session = Depends(get_session)
+):
+    """
+    Get list of users who liked a comment.
+    Returns up to 10 users with profile pictures for display.
+    """
+    # Check if comment exists
+    comment = session.exec(select(Comment).where(Comment.id == comment_id)).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # Get users who liked this comment (most recent first, limit 10)
+    statement = (
+        select(CommentLike, User)
+        .where(CommentLike.comment_id == comment_id)
+        .where(CommentLike.user_id == User.id)
+        .order_by(CommentLike.created_at.desc())
+        .limit(10)
+    )
+    results = session.exec(statement).all()
+
+    likers = [
+        CommentLikeUser(
+            user_id=user.id,
+            username=user.username,
+            profile_picture=user.profile_picture
+        )
+        for _, user in results
+    ]
+
+    return CommentLikers(
+        comment_id=comment_id,
+        like_count=comment.like_count,
+        likers=likers
+    )

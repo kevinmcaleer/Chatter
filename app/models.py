@@ -68,9 +68,13 @@ class Comment(SQLModel, table=True):
     is_removed: bool = Field(default=False)  # User can soft-delete their own comments
     removed_at: Optional[datetime] = None  # When comment was removed by author
 
+    # Like count (Issue #69) - denormalized for efficient sorting
+    like_count: int = Field(default=0, index=True)  # Number of likes this comment has received
+
     user: Optional["User"] = Relationship(back_populates="comments", sa_relationship_kwargs={"foreign_keys": "[Comment.user_id]"})
     reviewer: Optional["User"] = Relationship(sa_relationship_kwargs={"foreign_keys": "[Comment.reviewed_by]", "overlaps": "reviewed_comments"})
     versions: List["CommentVersion"] = Relationship(back_populates="comment", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    likes: List["CommentLike"] = Relationship(back_populates="comment", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 class CommentVersion(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -79,6 +83,24 @@ class CommentVersion(SQLModel, table=True):
     edited_at: datetime = Field(default_factory=datetime.utcnow)  # When this version was created
 
     comment: Optional["Comment"] = Relationship(back_populates="versions")
+
+class CommentLike(SQLModel, table=True):
+    """
+    Track likes on comments (Issue #69)
+    Users can like/upvote comments to show agreement or support
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    comment_id: int = Field(foreign_key="comment.id", index=True)  # Index for fast lookups by comment
+    user_id: int = Field(foreign_key="user.id", index=True)  # Index for fast lookups by user
+    created_at: datetime = Field(default_factory=datetime.utcnow)  # Track when like was created
+
+    comment: Optional["Comment"] = Relationship(back_populates="likes")
+    user: Optional["User"] = Relationship()
+
+    class Config:
+        # Add unique constraint to prevent duplicate likes
+        # User can only like the same comment once
+        unique_together = [("comment_id", "user_id")]
 
 class AccountLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

@@ -72,9 +72,23 @@ class CommentWithUser(BaseModel):
     user_id: int
     username: str
     profile_picture: Optional[str] = None  # Profile picture filename
+    like_count: int = 0  # Number of likes on this comment
+    user_has_liked: bool = False  # Whether current user has liked this comment
 
 class CommentUpdate(BaseModel):
     content: str
+
+class CommentLikeUser(BaseModel):
+    """User information for displaying who liked a comment"""
+    user_id: int
+    username: str
+    profile_picture: Optional[str] = None
+
+class CommentLikers(BaseModel):
+    """List of users who liked a comment (for displaying profile pictures)"""
+    comment_id: int
+    like_count: int
+    likers: list[CommentLikeUser]  # Up to 10 users for display
 
 class CommentVersionRead(BaseModel):
     id: int
