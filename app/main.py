@@ -12,7 +12,15 @@ from .page_views import router as page_views_router
 from .profile import router as profile_router
 from dotenv import load_dotenv
 import os
+import logging
+
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # Initialize rate limiter (disabled in testing)
 TESTING = os.getenv("TESTING", "false").lower() == "true"

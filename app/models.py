@@ -7,6 +7,9 @@ if TYPE_CHECKING:
     from .models import User
 
 class User(SQLModel, table=True):
+    __tablename__ = "user"  # Match existing table name in database
+    __table_args__ = {'quote': True}  # Quote table name because 'user' is a reserved keyword
+
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
     firstname: str
@@ -36,6 +39,8 @@ class User(SQLModel, table=True):
     changed_logs: List["AccountLog"] = Relationship(back_populates="changed_by_user", sa_relationship_kwargs={"foreign_keys": "[AccountLog.changed_by]"})
 
 class Like(SQLModel, table=True):
+    __tablename__ = "like"  # Match existing table name in database
+
     id: Optional[int] = Field(default=None, primary_key=True)
     url: str = Field(index=True)  # Index for fast lookups by URL
     user_id: int = Field(foreign_key="user.id", index=True)  # Index for fast lookups by user
@@ -49,6 +54,8 @@ class Like(SQLModel, table=True):
         unique_together = [("url", "user_id")]
 
 class Comment(SQLModel, table=True):
+    __tablename__ = "comment"  # Match existing table name in database
+
     id: Optional[int] = Field(default=None, primary_key=True)
     url: str = Field(index=True)  # Index for fast lookups by URL
     content: str
@@ -96,6 +103,8 @@ class Comment(SQLModel, table=True):
     )
 
 class CommentVersion(SQLModel, table=True):
+    __tablename__ = "commentversion"  # Match existing table name in database
+
     id: Optional[int] = Field(default=None, primary_key=True)
     comment_id: int = Field(foreign_key="comment.id", index=True)
     content: str  # Previous version of the comment content
@@ -108,6 +117,8 @@ class CommentLike(SQLModel, table=True):
     Track likes on comments (Issue #69)
     Users can like/upvote comments to show agreement or support
     """
+    __tablename__ = "commentlike"  # Match existing table name in database
+
     id: Optional[int] = Field(default=None, primary_key=True)
     comment_id: int = Field(foreign_key="comment.id", index=True)  # Index for fast lookups by comment
     user_id: int = Field(foreign_key="user.id", index=True)  # Index for fast lookups by user
@@ -122,6 +133,8 @@ class CommentLike(SQLModel, table=True):
         unique_together = [("comment_id", "user_id")]
 
 class AccountLog(SQLModel, table=True):
+    __tablename__ = "accountlog"  # Match existing table name in database
+
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")
     action: str  # created, updated, activated, deactivated, deleted
@@ -138,6 +151,8 @@ class AccountLog(SQLModel, table=True):
     changed_by_user: Optional["User"] = Relationship(back_populates="changed_logs", sa_relationship_kwargs={"foreign_keys": "[AccountLog.changed_by]"})
 
 class PageView(SQLModel, table=True):
+    __tablename__ = "pageview"  # Match existing table name in database
+
     id: Optional[int] = Field(default=None, primary_key=True)
     url: str = Field(index=True)  # Index for fast lookups by URL
     ip_address: str = Field(index=True)  # Track IP for unique visitor counts

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
-from .models import Like, Comment, CommentVersion
-from .schemas import LikeCreate, CommentCreate, CommentRead, CommentWithUser, CommentUpdate, CommentVersionRead
+from .models import Like, Comment, CommentVersion, CommentLike
+from .schemas import LikeCreate, CommentCreate, CommentRead, CommentWithUser, CommentUpdate, CommentVersionRead, CommentLikers, CommentLikeUser
 from .database import get_session
 from .auth import get_current_user, get_optional_user
 from .models import User
@@ -134,6 +134,57 @@ def get_comment_versions(
         })
 
     return result
+
+@router.options("/comments/{comment_id}/likers")
+def comment_likers_options(comment_id: int):
+    """Handle preflight OPTIONS request for comment likers"""
+    return {}
+
+
+@router.get("/comments/{comment_id}/likers", response_model=CommentLikers)
+def get_comment_likers(
+    comment_id: int,
+    session: Session = Depends(get_session)
+):
+    """
+    Get list of users who liked a comment.
+    Returns up to 10 users with profile pictures for display.
+    """
+    logger.info(f"get_comment_likers CALLED: comment_id={comment_id}")
+
+    # Check if comment exists
+    comment = session.exec(select(Comment).where(Comment.id == comment_id)).first()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    # Get users who liked this comment (most recent first, limit 10)
+    statement = (
+        select(CommentLike, User)
+        .join(User, CommentLike.user_id == User.id)
+        .where(CommentLike.comment_id == comment_id)
+        .order_by(CommentLike.created_at.desc())
+        .limit(10)
+    )
+    results = session.exec(statement).all()
+
+    logger.info(f"get_comment_likers: comment_id={comment_id}, found {len(results)} likers")
+
+    likers = [
+        CommentLikeUser(
+            user_id=user.id,
+            username=user.username,
+            profile_picture=user.profile_picture
+        )
+        for comment_like, user in results
+    ]
+
+    logger.info(f"get_comment_likers: returning {len(likers)} likers")
+
+    return CommentLikers(
+        comment_id=comment_id,
+        like_count=comment.like_count,
+        likers=likers
+    )
 
 @router.get("/comments/{url:path}", response_model=List[CommentWithUser])
 def get_comments_with_usernames(
@@ -682,53 +733,3 @@ def toggle_comment_like(
             "liked": True,
             "like_count": comment.like_count
         }
-
-
-@router.options("/comments/{comment_id}/likers")
-def comment_likers_options(comment_id: int):
-    """Handle preflight OPTIONS request for comment likers"""
-    return {}
-
-
-@router.get("/comments/{comment_id}/likers", response_model=CommentLikers)
-def get_comment_likers(
-    comment_id: int,
-    session: Session = Depends(get_session)
-):
-    """
-    Get list of users who liked a comment.
-    Returns up to 10 users with profile pictures for display.
-    """
-    # Check if comment exists
-    comment = session.exec(select(Comment).where(Comment.id == comment_id)).first()
-    if not comment:
-        raise HTTPException(status_code=404, detail="Comment not found")
-
-    # Get users who liked this comment (most recent first, limit 10)
-    statement = (
-        select(CommentLike, User)
-        .join(User, CommentLike.user_id == User.id)
-        .where(CommentLike.comment_id == comment_id)
-        .order_by(CommentLike.created_at.desc())
-        .limit(10)
-    )
-    results = session.exec(statement).all()
-
-    logger.info(f"get_comment_likers: comment_id={comment_id}, found {len(results)} likers")
-
-    likers = [
-        CommentLikeUser(
-            user_id=user.id,
-            username=user.username,
-            profile_picture=user.profile_picture
-        )
-        for comment_like, user in results
-    ]
-
-    logger.info(f"get_comment_likers: returning {len(likers)} likers")
-
-    return CommentLikers(
-        comment_id=comment_id,
-        like_count=comment.like_count,
-        likers=likers
-    )
