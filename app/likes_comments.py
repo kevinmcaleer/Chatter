@@ -711,14 +711,18 @@ def get_comment_likers(
     )
     results = session.exec(statement).all()
 
+    print(f"[DEBUG] get_comment_likers: comment_id={comment_id}, found {len(results)} likers")
+
     likers = [
         CommentLikeUser(
             user_id=user.id,
             username=user.username,
             profile_picture=user.profile_picture
         )
-        for _, user in results
+        for comment_like, user in results
     ]
+
+    print(f"[DEBUG] get_comment_likers: returning {len(likers)} likers")
 
     return CommentLikers(
         comment_id=comment_id,
