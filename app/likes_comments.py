@@ -681,6 +681,12 @@ def toggle_comment_like(
         }
 
 
+@router.options("/comments/{comment_id}/likers")
+def comment_likers_options(comment_id: int):
+    """Handle preflight OPTIONS request for comment likers"""
+    return {}
+
+
 @router.get("/comments/{comment_id}/likers", response_model=CommentLikers)
 def get_comment_likers(
     comment_id: int,

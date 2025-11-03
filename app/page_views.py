@@ -145,6 +145,12 @@ def get_most_viewed(limit: int = 10, session: Session = Depends(get_session)):
     ]
 
 
+@router.options("/page-views/{url:path}/timeline")
+def page_view_timeline_options(url: str):
+    """Handle preflight OPTIONS request for page view timeline"""
+    return {}
+
+
 @router.get("/page-views/{url:path}/timeline", response_model=PageViewTimeline)
 def get_page_view_timeline(
     url: str,
