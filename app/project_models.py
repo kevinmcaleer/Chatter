@@ -40,7 +40,13 @@ class Project(SQLModel, table=True):
     bill_of_materials: List["BillOfMaterial"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     components: List["ProjectComponent"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     files: List["ProjectFile"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    images: List["ProjectImage"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    images: List["ProjectImage"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "foreign_keys": "[ProjectImage.project_id]"
+        }
+    )
     links: List["ProjectLink"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     tools_materials: List["ToolMaterial"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
@@ -177,7 +183,10 @@ class ProjectImage(SQLModel, table=True):
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    project: Optional["Project"] = Relationship(back_populates="images")
+    project: Optional["Project"] = Relationship(
+        back_populates="images",
+        sa_relationship_kwargs={"foreign_keys": "[ProjectImage.project_id]"}
+    )
 
 
 class ProjectLink(SQLModel, table=True):
