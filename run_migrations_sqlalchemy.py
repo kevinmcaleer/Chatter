@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
 """
 Run database migrations for Issues #43 and #69 using SQLAlchemy
+Reads database credentials from .env file
 """
 from pathlib import Path
 from sqlalchemy import create_engine, text
+import os
+from dotenv import load_dotenv
 
-# Database connection
-DATABASE_URL = "postgresql://kevsrobots_user:ChangeMe123@192.168.2.1:5433/kevsrobots_cms"
+# Load environment variables from .env
+env_path = Path(__file__).parent / '.env'
+load_dotenv(env_path)
+
+# Database connection from environment
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL not found in .env file")
 
 def run_migration(migration_file):
     """Run a SQL migration file"""
@@ -23,19 +32,19 @@ def run_migration(migration_file):
 
     with engine.connect() as conn:
         try:
-            # Execute each statement (split by semicolons, filter out comments)
-            statements = [s.strip() for s in sql.split(';') if s.strip() and not s.strip().startswith('--')]
+            # Execute the entire SQL file as one transaction
+            # Split into statements but preserve structure
+            print(f"Executing migration SQL...")
 
-            for statement in statements:
-                if statement:
-                    print(f"Executing: {statement[:100]}...")
-                    conn.execute(text(statement))
+            # Use raw connection to execute multiple statements
+            result = conn.connection.cursor()
+            result.execute(sql)
+            conn.connection.commit()
 
-            conn.commit()
             print(f"\n✅ Migration completed successfully: {migration_file.name}")
         except Exception as e:
             print(f"\n❌ Error running migration: {e}")
-            conn.rollback()
+            conn.connection.rollback()
             raise
 
 def main():
