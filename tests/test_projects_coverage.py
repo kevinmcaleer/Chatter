@@ -5,7 +5,7 @@ Targets uncovered code paths and edge cases
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 from unittest.mock import patch
 
 from app.main import app
@@ -637,3 +637,587 @@ class TestLinksListing:
         assert response.status_code == 200
         data = response.json()
         assert len(data) == 2
+
+
+class TestProjectUpdates:
+    """Test project update operations including tags and metadata"""
+
+    def test_update_project_tags(self, auth_client: TestClient, session: Session,
+                                 test_project: Project):
+        """Test updating project tags"""
+        from app.project_models import ProjectTag
+
+        # Add initial tags
+        tag1 = ProjectTag(project_id=test_project.id, tag_name="python")
+        tag2 = ProjectTag(project_id=test_project.id, tag_name="arduino")
+        session.add_all([tag1, tag2])
+        session.commit()
+
+        # Update with new tags
+        response = auth_client.put(
+            f"/api/projects/{test_project.id}",
+            json={
+                "title": test_project.title,
+                "description": test_project.description,
+                "tags": ["robotics", "sensors"]
+            }
+        )
+        assert response.status_code == 200
+
+        # Verify old tags are removed and new tags are added
+        tags = session.exec(
+            select(ProjectTag).where(ProjectTag.project_id == test_project.id)
+        ).all()
+        tag_names = [t.tag_name for t in tags]
+        assert "robotics" in tag_names
+        assert "sensors" in tag_names
+        assert "python" not in tag_names
+        assert "arduino" not in tag_names
+
+    def test_update_project_background(self, auth_client: TestClient, session: Session,
+                                       test_project: Project):
+        """Test updating project background and code link"""
+        response = auth_client.put(
+            f"/api/projects/{test_project.id}",
+            json={
+                "title": test_project.title,
+                "description": test_project.description,
+                "background": "This is the background story",
+                "code_link": "https://github.com/test/repo"
+            }
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["background"] == "This is the background story"
+        assert data["code_link"] == "https://github.com/test/repo"
+
+
+class TestZIPDownloadEnhanced:
+    """Test ZIP download with various project components"""
+
+    @patch('app.projects.check_nas_connection', return_value=False)
+    @patch('app.projects.read_file_from_local')
+    def test_zip_download_with_bom_items(self, mock_read_local, mock_check_nas,
+                                         auth_client: TestClient, session: Session,
+                                         test_user: User):
+        """Test ZIP download README includes BOM items"""
+        from app.project_models import BillOfMaterial
+
+        # Create published project
+        project = Project(
+            title="Project with BOM",
+            description="Test project",
+            author_id=test_user.id,
+            status="published"
+        )
+        session.add(project)
+        session.commit()
+        session.refresh(project)
+
+        # Add BOM items
+        bom1 = BillOfMaterial(
+            project_id=project.id,
+            item_name="Resistor 220Ω",
+            quantity=10,
+            price_cents=50,
+            description="Standard resistor",
+            item_order=1
+        )
+        bom2 = BillOfMaterial(
+            project_id=project.id,
+            item_name="LED",
+            quantity=5,
+            price_cents=100,
+            description="Red LED",
+            item_order=2
+        )
+        session.add_all([bom1, bom2])
+        session.commit()
+
+        # Mock file reads
+        mock_read_local.return_value = None
+
+        response = auth_client.get(f"/api/projects/{project.id}/download")
+        assert response.status_code == 200
+
+        # Verify download count incremented
+        session.refresh(project)
+        assert project.download_count == 1
+
+    @patch('app.projects.check_nas_connection', return_value=False)
+    @patch('app.projects.read_file_from_local')
+    def test_zip_download_with_components_and_tools(self, mock_read_local, mock_check_nas,
+                                                    auth_client: TestClient, session: Session,
+                                                    test_user: User):
+        """Test ZIP download README includes components and tools"""
+        from app.project_models import ToolMaterial
+
+        # Create published project
+        project = Project(
+            title="Project with Components",
+            description="Test project",
+            author_id=test_user.id,
+            status="published"
+        )
+        session.add(project)
+        session.commit()
+        session.refresh(project)
+
+        # Add component
+        comp = Component(
+            name="Arduino Uno",
+            description="Microcontroller",
+            datasheet_url="https://example.com/datasheet.pdf"
+        )
+        session.add(comp)
+        session.commit()
+        session.refresh(comp)
+
+        proj_comp = ProjectComponent(
+            project_id=project.id,
+            component_id=comp.id,
+            quantity=1,
+            notes="Main controller"
+        )
+        session.add(proj_comp)
+
+        # Add tools
+        tool1 = ToolMaterial(
+            project_id=project.id,
+            name="Soldering Iron",
+            tool_type="tool",
+            notes="40W recommended"
+        )
+        tool2 = ToolMaterial(
+            project_id=project.id,
+            name="Wire Strippers",
+            tool_type="tool"
+        )
+        session.add_all([tool1, tool2])
+        session.commit()
+
+        # Mock file reads
+        mock_read_local.return_value = None
+
+        response = auth_client.get(f"/api/projects/{project.id}/download")
+        assert response.status_code == 200
+
+    @patch('app.projects.check_nas_connection', return_value=False)
+    @patch('app.projects.read_file_from_local')
+    def test_zip_download_with_links(self, mock_read_local, mock_check_nas,
+                                    auth_client: TestClient, session: Session,
+                                    test_user: User):
+        """Test ZIP download README includes links"""
+        from app.project_models import ProjectLink
+
+        # Create published project
+        project = Project(
+            title="Project with Links",
+            description="Test project",
+            author_id=test_user.id,
+            status="published"
+        )
+        session.add(project)
+        session.commit()
+        session.refresh(project)
+
+        # Add links
+        link1 = ProjectLink(
+            project_id=project.id,
+            title="Tutorial Video",
+            url="https://youtube.com/watch?v=123",
+            link_type="video",
+            description="Step by step guide"
+        )
+        link2 = ProjectLink(
+            project_id=project.id,
+            title="Reference Design",
+            url="https://example.com/design",
+            link_type="reference"
+        )
+        session.add_all([link1, link2])
+        session.commit()
+
+        # Mock file reads
+        mock_read_local.return_value = None
+
+        response = auth_client.get(f"/api/projects/{project.id}/download")
+        assert response.status_code == 200
+
+
+class TestAdditionalEdgeCases:
+    """Additional edge case tests to reach 80% coverage"""
+
+    def test_create_project_with_all_optional_fields(self, auth_client: TestClient):
+        """Test creating project with all optional fields"""
+        response = auth_client.post(
+            "/api/projects",
+            json={
+                "title": "Complete Project",
+                "description": "Full project with all fields",
+                "status": "draft",
+                "background": "Detailed background",
+                "code_link": "https://github.com/test/repo",
+                "tags": ["python", "robotics", "ai"]
+            }
+        )
+        assert response.status_code == 201  # POST returns 201 Created
+        data = response.json()
+        assert data["background"] == "Detailed background"
+        assert data["code_link"] == "https://github.com/test/repo"
+
+    def test_get_nonexistent_project_details(self, client: TestClient):
+        """Test getting details for project that doesn't exist"""
+        response = client.get("/api/projects/99999")
+        assert response.status_code == 404
+
+    def test_list_projects_with_pagination(self, client: TestClient, session: Session,
+                                          test_user: User):
+        """Test project listing with pagination parameters"""
+        # Create 5 published projects
+        for i in range(5):
+            project = Project(
+                title=f"Project {i}",
+                description="Test",
+                author_id=test_user.id,
+                status="published"
+            )
+            session.add(project)
+        session.commit()
+
+        # Test pagination - response is dict with 'projects' key
+        response = client.get("/api/projects")
+        assert response.status_code == 200
+        data = response.json()
+        assert "projects" in data
+        assert len(data["projects"]) == 5
+
+    def test_delete_step_from_project(self, auth_client: TestClient, session: Session,
+                                     test_project: Project):
+        """Test deleting a step from a project"""
+        from app.project_models import ProjectStep
+
+        # Create a step
+        step = ProjectStep(
+            project_id=test_project.id,
+            step_number=1,
+            title="Step 1",
+            content="Do this first"
+        )
+        session.add(step)
+        session.commit()
+        session.refresh(step)
+
+        # Delete the step
+        response = auth_client.delete(f"/api/projects/{test_project.id}/steps/{step.id}")
+        assert response.status_code == 204
+
+        # Verify deletion
+        deleted_step = session.get(ProjectStep, step.id)
+        assert deleted_step is None
+
+    def test_update_bom_item_price(self, auth_client: TestClient, session: Session,
+                                   test_project: Project):
+        """Test updating BOM item price"""
+        from app.project_models import BillOfMaterial
+
+        # Create BOM item
+        bom = BillOfMaterial(
+            project_id=test_project.id,
+            item_name="Component",
+            quantity=1,
+            price_cents=100,
+            item_order=1
+        )
+        session.add(bom)
+        session.commit()
+        session.refresh(bom)
+
+        # Update price
+        response = auth_client.put(
+            f"/api/projects/{test_project.id}/bom/{bom.id}",
+            json={
+                "item_name": "Component",
+                "quantity": 1,
+                "price_cents": 200,
+                "item_order": 1
+            }
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["price_cents"] == 200
+
+    def test_delete_component_from_project(self, auth_client: TestClient, session: Session,
+                                          test_project: Project):
+        """Test removing a component from a project"""
+        # Create component and add to project
+        comp = Component(name="Test Component", description="Test")
+        session.add(comp)
+        session.commit()
+        session.refresh(comp)
+
+        proj_comp = ProjectComponent(
+            project_id=test_project.id,
+            component_id=comp.id,
+            quantity=1
+        )
+        session.add(proj_comp)
+        session.commit()
+
+        # Delete association
+        response = auth_client.delete(f"/api/projects/{test_project.id}/components/{comp.id}")
+        assert response.status_code == 204
+
+        # Verify deletion
+        remaining = session.exec(
+            select(ProjectComponent)
+            .where(ProjectComponent.project_id == test_project.id)
+            .where(ProjectComponent.component_id == comp.id)
+        ).first()
+        assert remaining is None
+
+    def test_update_step_content(self, auth_client: TestClient, session: Session,
+                                test_project: Project):
+        """Test updating step content and title"""
+        from app.project_models import ProjectStep
+
+        # Create step
+        step = ProjectStep(
+            project_id=test_project.id,
+            step_number=1,
+            title="Original Title",
+            content="Original content"
+        )
+        session.add(step)
+        session.commit()
+        session.refresh(step)
+
+        # Update step
+        response = auth_client.put(
+            f"/api/projects/{test_project.id}/steps/{step.id}",
+            json={
+                "title": "Updated Title",
+                "content": "Updated content",
+                "step_number": 1
+            }
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["title"] == "Updated Title"
+        assert data["content"] == "Updated content"
+
+    def test_list_components_empty(self, auth_client: TestClient, test_project: Project):
+        """Test listing components when project has none"""
+        response = auth_client.get(f"/api/projects/{test_project.id}/components")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 0
+
+    def test_list_bom_items_empty(self, auth_client: TestClient, test_project: Project):
+        """Test listing BOM items when project has none"""
+        response = auth_client.get(f"/api/projects/{test_project.id}/bom")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 0
+
+    def test_list_steps_for_project(self, auth_client: TestClient, session: Session,
+                                   test_project: Project):
+        """Test listing all steps for a project"""
+        from app.project_models import ProjectStep
+
+        # Create multiple steps
+        steps = [
+            ProjectStep(project_id=test_project.id, step_number=1, title="Step 1", content="First"),
+            ProjectStep(project_id=test_project.id, step_number=2, title="Step 2", content="Second"),
+            ProjectStep(project_id=test_project.id, step_number=3, title="Step 3", content="Third"),
+        ]
+        for step in steps:
+            session.add(step)
+        session.commit()
+
+        response = auth_client.get(f"/api/projects/{test_project.id}/steps")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 3
+        assert data[0]["step_number"] == 1
+
+    def test_create_step_with_explicit_number(self, auth_client: TestClient,
+                                              test_project: Project):
+        """Test creating a step with explicit step number"""
+        from app.project_models import ProjectStep
+
+        response = auth_client.post(
+            f"/api/projects/{test_project.id}/steps",
+            json={
+                "title": "Step 5",
+                "content": "Jump to step 5",
+                "step_number": 5
+            }
+        )
+        assert response.status_code == 201  # POST returns 201
+        data = response.json()
+        assert data["step_number"] == 5
+
+    def test_delete_link_from_project(self, auth_client: TestClient, session: Session,
+                                      test_project: Project):
+        """Test deleting a link from a project"""
+        from app.project_models import ProjectLink
+
+        # Create link
+        link = ProjectLink(
+            project_id=test_project.id,
+            title="Test Link",
+            url="https://example.com",
+            link_type="reference"
+        )
+        session.add(link)
+        session.commit()
+        session.refresh(link)
+
+        # Delete link
+        response = auth_client.delete(f"/api/projects/{test_project.id}/links/{link.id}")
+        assert response.status_code == 204
+
+    def test_delete_tool_from_project(self, auth_client: TestClient, session: Session,
+                                     test_project: Project):
+        """Test deleting a tool from a project"""
+        from app.project_models import ToolMaterial
+
+        # Create tool
+        tool = ToolMaterial(
+            project_id=test_project.id,
+            name="Screwdriver",
+            tool_type="tool"
+        )
+        session.add(tool)
+        session.commit()
+        session.refresh(tool)
+
+        # Delete tool
+        response = auth_client.delete(f"/api/projects/{test_project.id}/tools/{tool.id}")
+        assert response.status_code == 204
+
+    def test_delete_bom_item(self, auth_client: TestClient, session: Session,
+                            test_project: Project):
+        """Test deleting a BOM item"""
+        from app.project_models import BillOfMaterial
+
+        # Create BOM item
+        bom = BillOfMaterial(
+            project_id=test_project.id,
+            item_name="Component",
+            quantity=1,
+            item_order=1
+        )
+        session.add(bom)
+        session.commit()
+        session.refresh(bom)
+
+        # Delete BOM item
+        response = auth_client.delete(f"/api/projects/{test_project.id}/bom/{bom.id}")
+        assert response.status_code == 204
+
+    def test_get_project_by_id_published(self, client: TestClient, session: Session,
+                                        test_user: User):
+        """Test getting a published project by ID"""
+        project = Project(
+            title="Published Project",
+            description="Test",
+            author_id=test_user.id,
+            status="published"
+        )
+        session.add(project)
+        session.commit()
+        session.refresh(project)
+
+        response = client.get(f"/api/projects/{project.id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["title"] == "Published Project"
+        assert data["status"] == "published"
+
+    def test_search_components_by_keyword(self, auth_client: TestClient, session: Session):
+        """Test component search with keyword"""
+        # Create components with specific names
+        comp1 = Component(name="ESP32 WiFi Module", description="WiFi chip")
+        comp2 = Component(name="ESP8266", description="Older WiFi chip")
+        comp3 = Component(name="Arduino Uno", description="Microcontroller")
+        session.add_all([comp1, comp2, comp3])
+        session.commit()
+
+        # Search for "ESP"
+        response = auth_client.get("/api/components/search?q=ESP")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) >= 2
+        assert any("ESP32" in c["name"] or "ESP8266" in c["name"] for c in data)
+
+    def test_create_bom_item_with_description(self, auth_client: TestClient,
+                                             test_project: Project):
+        """Test creating BOM item with description"""
+        response = auth_client.post(
+            f"/api/projects/{test_project.id}/bom",
+            json={
+                "item_name": "Resistor Pack",
+                "quantity": 100,
+                "price_cents": 500,
+                "description": "Assorted resistors",
+                "item_order": 1
+            }
+        )
+        assert response.status_code == 201  # POST returns 201
+        data = response.json()
+        assert data["item_name"] == "Resistor Pack"
+        assert data["description"] == "Assorted resistors"
+
+    def test_create_link_with_description(self, auth_client: TestClient,
+                                         test_project: Project):
+        """Test creating project link with description"""
+        response = auth_client.post(
+            f"/api/projects/{test_project.id}/links",
+            json={
+                "title": "Tutorial",
+                "url": "https://youtube.com/watch?v=abc",
+                "link_type": "video",
+                "description": "Detailed walkthrough"
+            }
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["description"] == "Detailed walkthrough"
+
+    def test_create_tool_with_notes(self, auth_client: TestClient,
+                                   test_project: Project):
+        """Test creating tool with notes"""
+        response = auth_client.post(
+            f"/api/projects/{test_project.id}/tools",
+            json={
+                "name": "Multimeter",
+                "tool_type": "measurement",
+                "notes": "Digital preferred"
+            }
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["notes"] == "Digital preferred"
+
+    def test_add_component_to_project_with_notes(self, auth_client: TestClient, session: Session,
+                                                 test_project: Project):
+        """Test adding component to project with notes"""
+        comp = Component(name="LED Matrix", description="8x8 display")
+        session.add(comp)
+        session.commit()
+        session.refresh(comp)
+
+        response = auth_client.post(
+            f"/api/projects/{test_project.id}/components",
+            json={
+                "component_id": comp.id,
+                "quantity": 2,
+                "notes": "Use red LEDs for better visibility"
+            }
+        )
+        assert response.status_code == 201  # POST returns 201
+        data = response.json()
+        assert data["notes"] == "Use red LEDs for better visibility"
+        assert data["quantity"] == 2
