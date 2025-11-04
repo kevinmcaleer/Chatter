@@ -24,7 +24,7 @@ class ProjectTagRead(BaseModel):
 
 # Step Schemas
 class ProjectStepCreate(BaseModel):
-    step_number: int = Field(..., ge=1, description="Step number (1-based)")
+    step_number: Optional[int] = Field(None, ge=1, description="Step number (1-based, auto-assigned if not provided)")
     title: str = Field(..., max_length=255)
     content: str = Field(..., description="Markdown content")
 
@@ -228,6 +228,7 @@ class ProjectDetail(BaseModel):
     status: str
     background: Optional[str]
     code_link: Optional[str]
+    primary_image_id: Optional[int]
     created_at: datetime
     updated_at: datetime
     view_count: int

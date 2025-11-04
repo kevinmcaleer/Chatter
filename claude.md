@@ -20,3 +20,8 @@
 - never expose the username and password in the repository over exposing them
 - front end servers chatter servers are 192.168.2.1 and 192.168.2.2, the database servers are 192.168.2.3 with the backup server at 192.168.2.4, all servers host kevsrobots.com jekyll site (192.168.2.1 is temporarily excluded from this group)
 - database migrations should always be documented, able to rollback and update the schema_version table over neglecting these steps
+- all business logic should be in the backend over the frontend
+- database migration documentation should be stored in design/migrations/ over other locations
+- all API endpoints should be documented in design/api_endpoints.md over no documentation
+- scripts to run or apply migrations should be stored in scripts/migrations/ over other locations
+- diagnosis scripts should be stored in scripts/diagnosis/ over other locations

@@ -3,7 +3,7 @@ User Projects API Router (Issue #15)
 Handles project CRUD operations, publishing, and gallery views
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session, select, func
 from typing import List, Optional
@@ -595,7 +595,7 @@ def delete_project_step(
 @router.put("/projects/{project_id}/steps/reorder", response_model=List[ProjectStepRead])
 def reorder_project_steps(
     project_id: int,
-    step_order: List[int],
+    step_order: List[int] = Body(...),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
@@ -1678,7 +1678,8 @@ def list_project_images(
         ProjectImageRead(
             id=img.id,
             filename=img.filename,
-            image_url=f"/api/projects/{project_id}/images/{img.id}/file",
+            original_filename=img.original_filename,
+            display_order=img.display_order,
             caption=img.caption,
             uploaded_at=img.uploaded_at
         )
@@ -2102,6 +2103,7 @@ def _build_project_detail(project: Project, author_username: str, session: Sessi
         status=project.status,
         background=project.background,
         code_link=project.code_link,
+        primary_image_id=project.primary_image_id,
         created_at=project.created_at,
         updated_at=project.updated_at,
         view_count=project.view_count,
