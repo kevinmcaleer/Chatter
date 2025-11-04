@@ -425,25 +425,37 @@ def create_project_step(
             detail="You can only add steps to your own projects"
         )
 
-    # Check if step number already exists
-    existing_step = session.exec(
-        select(ProjectStep).where(
-            ProjectStep.project_id == project_id,
-            ProjectStep.step_number == step_data.step_number
-        )
-    ).first()
+    # Auto-assign step number if not provided
+    if step_data.step_number is None:
+        # Get the max step number for this project
+        max_step = session.exec(
+            select(func.max(ProjectStep.step_number)).where(
+                ProjectStep.project_id == project_id
+            )
+        ).first()
+        step_number = (max_step or 0) + 1
+    else:
+        step_number = step_data.step_number
 
-    if existing_step:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Step number {step_data.step_number} already exists for this project"
-        )
+        # Check if step number already exists (only if user provided it)
+        existing_step = session.exec(
+            select(ProjectStep).where(
+                ProjectStep.project_id == project_id,
+                ProjectStep.step_number == step_number
+            )
+        ).first()
 
-    logger.info(f"User {current_user.username} adding step {step_data.step_number} to project {project_id}")
+        if existing_step:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Step number {step_number} already exists for this project"
+            )
+
+    logger.info(f"User {current_user.username} adding step {step_number} to project {project_id}")
 
     step = ProjectStep(
         project_id=project_id,
-        step_number=step_data.step_number,
+        step_number=step_number,
         title=step_data.title,
         content=step_data.content
     )
@@ -1627,7 +1639,8 @@ async def upload_project_image(
     return ProjectImageRead(
         id=project_image.id,
         filename=project_image.filename,
-        image_url=f"/api/projects/{project_id}/images/{project_image.id}/file",
+        original_filename=project_image.original_filename,
+        display_order=project_image.display_order,
         caption=project_image.caption,
         uploaded_at=project_image.uploaded_at
     )

@@ -13,7 +13,7 @@ from datetime import datetime
 
 from app.main import app
 from app.database import get_session
-from app.auth import get_current_user
+from app.auth import get_current_user, get_optional_user
 from app.models import User
 from app.project_models import (
     Project, ProjectTag, ProjectStep, BillOfMaterial,
@@ -86,7 +86,11 @@ def auth_client_fixture(client: TestClient, test_user: User):
     def get_current_user_override():
         return test_user
 
+    def get_optional_user_override():
+        return test_user
+
     app.dependency_overrides[get_current_user] = get_current_user_override
+    app.dependency_overrides[get_optional_user] = get_optional_user_override
     yield client
     app.dependency_overrides.clear()
 
@@ -134,9 +138,11 @@ class TestProjectCRUD:
         assert data["title"] == "My Arduino Project"
         assert data["description"] == "A cool robotics project"
         assert data["status"] == "draft"
-        assert data["author"] == test_user.username
+        assert data["author_username"] == test_user.username
+        # tags is a list of objects, not strings
         assert len(data["tags"]) == 2
-        assert "arduino" in data["tags"]
+        tag_names = [tag["tag_name"] for tag in data["tags"]]
+        assert "arduino" in tag_names
 
     def test_create_project_requires_auth(self, client: TestClient):
         """Test that creating a project requires authentication"""
@@ -254,12 +260,11 @@ class TestProjectCRUD:
 class TestProjectSteps:
     """Test project steps management"""
 
-    def test_create_step(self, auth_client: TestClient, test_project: Project):
-        """Test creating a project step"""
+    def test_create_step_with_auto_number(self, auth_client: TestClient, test_project: Project):
+        """Test creating a project step with auto-assigned step number"""
         response = auth_client.post(
             f"/api/projects/{test_project.id}/steps",
             json={
-                "step_number": 1,
                 "title": "Step 1: Gather Materials",
                 "content": "You will need the following materials..."
             }
@@ -269,6 +274,57 @@ class TestProjectSteps:
         data = response.json()
         assert data["step_number"] == 1
         assert data["title"] == "Step 1: Gather Materials"
+
+    def test_create_step_with_explicit_number(self, auth_client: TestClient, test_project: Project):
+        """Test creating a project step with explicit step number"""
+        response = auth_client.post(
+            f"/api/projects/{test_project.id}/steps",
+            json={
+                "step_number": 5,
+                "title": "Step 5: Final Assembly",
+                "content": "Put it all together..."
+            }
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["step_number"] == 5
+        assert data["title"] == "Step 5: Final Assembly"
+
+    def test_create_multiple_steps_auto_number(self, auth_client: TestClient, test_project: Project):
+        """Test that multiple steps get sequential auto-assigned numbers"""
+        # Create first step
+        response1 = auth_client.post(
+            f"/api/projects/{test_project.id}/steps",
+            json={
+                "title": "First Step",
+                "content": "First content"
+            }
+        )
+        assert response1.status_code == 201
+        assert response1.json()["step_number"] == 1
+
+        # Create second step
+        response2 = auth_client.post(
+            f"/api/projects/{test_project.id}/steps",
+            json={
+                "title": "Second Step",
+                "content": "Second content"
+            }
+        )
+        assert response2.status_code == 201
+        assert response2.json()["step_number"] == 2
+
+        # Create third step
+        response3 = auth_client.post(
+            f"/api/projects/{test_project.id}/steps",
+            json={
+                "title": "Third Step",
+                "content": "Third content"
+            }
+        )
+        assert response3.status_code == 201
+        assert response3.json()["step_number"] == 3
 
     def test_list_steps(self, auth_client: TestClient, session: Session, test_project: Project):
         """Test listing project steps"""
@@ -412,8 +468,8 @@ class TestComponents:
 class TestFileUploads:
     """Test file upload functionality with NAS storage mocking"""
 
-    @patch('app.storage.check_nas_connection')
-    @patch('app.storage.save_file_to_nas')
+    @patch('app.projects.check_nas_connection')
+    @patch('app.projects.save_file_to_nas')
     def test_upload_file_to_nas(self, mock_save_nas, mock_check_nas,
                                  auth_client: TestClient, test_project: Project):
         """Test uploading a file (saves to NAS)"""
@@ -423,7 +479,7 @@ class TestFileUploads:
         file_content = b"This is test file content"
         response = auth_client.post(
             f"/api/projects/{test_project.id}/files",
-            data={"description": "Test file"},
+            data={"title": "Test STL File", "description": "Test file"},
             files={"file": ("test.stl", io.BytesIO(file_content), "application/octet-stream")}
         )
 
@@ -433,8 +489,8 @@ class TestFileUploads:
         assert data["file_size"] == len(file_content)
         mock_save_nas.assert_called_once()
 
-    @patch('app.storage.check_nas_connection')
-    @patch('app.storage.save_file_to_local')
+    @patch('app.projects.check_nas_connection')
+    @patch('app.projects.save_file_to_local')
     def test_upload_file_nas_fallback(self, mock_save_local, mock_check_nas,
                                        auth_client: TestClient, test_project: Project):
         """Test file upload falls back to local storage when NAS unavailable"""
@@ -444,7 +500,7 @@ class TestFileUploads:
         file_content = b"Test content"
         response = auth_client.post(
             f"/api/projects/{test_project.id}/files",
-            data={"description": "Test file"},
+            data={"title": "Python Code", "description": "Test file"},
             files={"file": ("code.py", io.BytesIO(file_content), "text/plain")}
         )
 
@@ -458,7 +514,7 @@ class TestFileUploads:
 
         response = auth_client.post(
             f"/api/projects/{test_project.id}/files",
-            data={"description": "Too large"},
+            data={"title": "Large PDF", "description": "Too large"},
             files={"file": ("large.pdf", io.BytesIO(large_content), "application/pdf")}
         )
 
@@ -469,8 +525,8 @@ class TestFileUploads:
 class TestImageUploads:
     """Test image upload functionality"""
 
-    @patch('app.storage.check_nas_connection')
-    @patch('app.storage.save_file_to_nas')
+    @patch('app.projects.check_nas_connection')
+    @patch('app.projects.save_file_to_nas')
     def test_upload_image(self, mock_save_nas, mock_check_nas,
                           auth_client: TestClient, test_project: Project):
         """Test uploading an image"""
@@ -482,7 +538,7 @@ class TestImageUploads:
 
         response = auth_client.post(
             f"/api/projects/{test_project.id}/images",
-            data={"caption": "Test image"},
+            data={"caption": "Test image", "display_order": "0"},
             files={"image": ("test.png", io.BytesIO(image_content), "image/png")}
         )
 
@@ -493,8 +549,8 @@ class TestImageUploads:
 class TestZIPDownload:
     """Test ZIP download and README generation"""
 
-    @patch('app.storage.check_nas_connection')
-    @patch('app.storage.read_file_from_nas')
+    @patch('app.projects.check_nas_connection')
+    @patch('app.projects.read_file_from_nas')
     def test_download_project_zip(self, mock_read_nas, mock_check_nas,
                                    client: TestClient, session: Session,
                                    test_user: User, test_project: Project):
@@ -650,7 +706,7 @@ class TestProjectWorkflow:
         # 4. Add file
         response = auth_client.post(
             f"/api/projects/{project_id}/files",
-            data={"description": "Source code"},
+            data={"title": "Robot Code", "description": "Source code"},
             files={"file": ("robot.ino", io.BytesIO(b"void setup(){}"), "text/plain")}
         )
         assert response.status_code == 201
