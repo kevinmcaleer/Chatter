@@ -115,12 +115,19 @@ def published_project_fixture(session: Session, test_user: User):
         title="Published Project",
         description="A published project",
         author_id=test_user.id,
-        status="published",
-        tags=["arduino", "robotics"]
+        status="published"
     )
     session.add(project)
     session.commit()
     session.refresh(project)
+
+    # Add tags separately
+    from app.project_models import ProjectTag
+    tag1 = ProjectTag(project_id=project.id, tag_name="arduino")
+    tag2 = ProjectTag(project_id=project.id, tag_name="robotics")
+    session.add_all([tag1, tag2])
+    session.commit()
+
     return project
 
 
@@ -161,14 +168,10 @@ class TestStepReordering:
         session.refresh(step2)
         session.refresh(step3)
 
-        # Reorder: swap first and third
+        # Reorder: swap first and third (provide list of step IDs in new order)
         response = auth_client.put(
             f"/api/projects/{test_project.id}/steps/reorder",
-            json=[
-                {"step_id": step3.id, "new_order": 1},
-                {"step_id": step2.id, "new_order": 2},
-                {"step_id": step1.id, "new_order": 3}
-            ]
+            json=[step3.id, step2.id, step1.id]  # New order: third, second, first
         )
 
         assert response.status_code == 200
@@ -247,16 +250,18 @@ class TestComponentSearch:
         session.commit()
 
         # Search for "Arduino"
-        response = auth_client.get("/api/components/search?query=Arduino")
+        response = auth_client.get("/api/components/search?q=Arduino")
         assert response.status_code == 200
         data = response.json()
         assert len(data) >= 2
         assert any(c["name"] == "Arduino Uno" for c in data)
 
     def test_search_components_empty_query(self, auth_client: TestClient):
-        """Test search with empty query returns error"""
-        response = auth_client.get("/api/components/search?query=")
-        assert response.status_code == 400
+        """Test search with short query returns empty list"""
+        response = auth_client.get("/api/components/search?q=a")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 0  # Returns empty array for queries < 2 chars
 
 
 # ============================================
