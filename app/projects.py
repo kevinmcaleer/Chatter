@@ -1502,8 +1502,9 @@ def list_project_files(
         ProjectFileRead(
             id=f.id,
             filename=f.filename,
+            original_filename=f.original_filename,
             file_size=f.file_size,
-            title=f.title,
+            file_type=f.file_type,
             description=f.description,
             uploaded_at=f.uploaded_at
         )
