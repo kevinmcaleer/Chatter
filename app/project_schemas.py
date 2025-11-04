@@ -42,6 +42,10 @@ class ProjectStepRead(BaseModel):
     created_at: datetime
 
 
+class ProjectStepReorder(BaseModel):
+    step_ids: List[int] = Field(..., description="List of step IDs in desired order")
+
+
 # Bill of Materials Schemas
 class BillOfMaterialCreate(BaseModel):
     item_name: str = Field(..., max_length=255)

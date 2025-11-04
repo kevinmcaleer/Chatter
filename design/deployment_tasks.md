@@ -517,13 +517,13 @@ Profile pictures are stored on NAS (SMB share) with local fallback:
   - ✅ Connects to all production servers (dev01, dev03, dev04)
   - ✅ Extracts files from /tmp/chatter_uploads/profile_pictures
   - ✅ Uploads to NAS with verification
-  - Location: `migrate_profile_pictures_to_nas.py`
+  - Location: `scripts/utilities/migrate_profile_pictures_to_nas.py`
 
 - [x] **Create test script**
   - ✅ Test NAS connectivity
   - ✅ Test file upload/read/delete operations
   - ✅ Cleanup test files
-  - Location: `test_nas_connection.py`
+  - Location: `scripts/diagnosis/test_nas_connection.py`
 
 ### NAS Deployment Steps
 
@@ -548,13 +548,13 @@ Profile pictures are stored on NAS (SMB share) with local fallback:
 3. [ ] **Test NAS connectivity**
    ```bash
    # Inside Docker container
-   docker exec chatter-app python test_nas_connection.py
+   docker exec chatter-app python scripts/diagnosis/test_nas_connection.py
    ```
 
 4. [ ] **Run migration script** (if existing pictures)
    ```bash
    # On development machine (with SSH access to servers)
-   python migrate_profile_pictures_to_nas.py
+   python scripts/utilities/migrate_profile_pictures_to_nas.py
    ```
 
 5. [ ] **Verify profile pictures**
@@ -575,7 +575,7 @@ Profile pictures are stored on NAS (SMB share) with local fallback:
 **If NAS credentials are wrong:**
 - Check logs: `docker logs chatter-app | grep NAS`
 - Verify .env file has correct credentials
-- Test connection: `docker exec chatter-app python test_nas_connection.py`
+- Test connection: `docker exec chatter-app python scripts/diagnosis/test_nas_connection.py`
 - Update .env and restart: `docker-compose restart`
 
 **To manually check NAS files:**

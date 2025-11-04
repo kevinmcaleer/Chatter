@@ -37,7 +37,7 @@ from .project_models import (
 from .project_schemas import (
     ProjectCreate, ProjectUpdate, ProjectDetail, ProjectSummary,
     ProjectGallery, ProjectPublish, ProjectTagRead, ProjectStepRead,
-    ProjectStepCreate, ProjectStepUpdate,
+    ProjectStepCreate, ProjectStepUpdate, ProjectStepReorder,
     BillOfMaterialRead, BillOfMaterialCreate, BillOfMaterialUpdate,
     ProjectComponentRead, ProjectComponentCreate, ComponentRead, ComponentCreate,
     ProjectFileRead, ProjectImageRead,
@@ -512,6 +512,79 @@ def list_project_steps(
     ]
 
 
+@router.put("/projects/{project_id}/steps/reorder", response_model=List[ProjectStepRead])
+def reorder_project_steps(
+    project_id: int,
+    reorder_data: ProjectStepReorder,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Reorder project steps.
+    Provide a list of step IDs in the desired order.
+    Only the author can reorder steps in their project.
+    """
+    project = session.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Check authorization
+    if project.author_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only reorder steps in your own projects"
+        )
+
+    logger.info(f"User {current_user.username} reordering steps in project {project_id}")
+
+    # Verify all step IDs belong to this project
+    steps = session.exec(
+        select(ProjectStep).where(ProjectStep.project_id == project_id)
+    ).all()
+
+    step_map = {s.id: s for s in steps}
+    step_order = reorder_data.step_ids
+
+    if len(step_order) != len(steps):
+        raise HTTPException(
+            status_code=400,
+            detail="Step order list must include all steps"
+        )
+
+    for step_id in step_order:
+        if step_id not in step_map:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Step {step_id} does not belong to this project"
+            )
+
+    # Update step numbers
+    for new_number, step_id in enumerate(step_order, start=1):
+        step = step_map[step_id]
+        step.step_number = new_number
+        session.add(step)
+
+    session.commit()
+
+    # Return updated steps in order
+    updated_steps = session.exec(
+        select(ProjectStep)
+        .where(ProjectStep.project_id == project_id)
+        .order_by(ProjectStep.step_number)
+    ).all()
+
+    return [
+        ProjectStepRead(
+            id=s.id,
+            step_number=s.step_number,
+            title=s.title,
+            content=s.content,
+            created_at=s.created_at
+        )
+        for s in updated_steps
+    ]
+
+
 @router.put("/projects/{project_id}/steps/{step_id}", response_model=ProjectStepRead)
 def update_project_step(
     project_id: int,
@@ -590,78 +663,6 @@ def delete_project_step(
 
     session.delete(step)
     session.commit()
-
-
-@router.put("/projects/{project_id}/steps/reorder", response_model=List[ProjectStepRead])
-def reorder_project_steps(
-    project_id: int,
-    step_order: List[int] = Body(...),
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Reorder project steps.
-    Provide a list of step IDs in the desired order.
-    Only the author can reorder steps in their project.
-    """
-    project = session.get(Project, project_id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    # Check authorization
-    if project.author_id != current_user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="You can only reorder steps in your own projects"
-        )
-
-    logger.info(f"User {current_user.username} reordering steps in project {project_id}")
-
-    # Verify all step IDs belong to this project
-    steps = session.exec(
-        select(ProjectStep).where(ProjectStep.project_id == project_id)
-    ).all()
-
-    step_map = {s.id: s for s in steps}
-
-    if len(step_order) != len(steps):
-        raise HTTPException(
-            status_code=400,
-            detail="Step order list must include all steps"
-        )
-
-    for step_id in step_order:
-        if step_id not in step_map:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Step {step_id} does not belong to this project"
-            )
-
-    # Update step numbers
-    for new_number, step_id in enumerate(step_order, start=1):
-        step = step_map[step_id]
-        step.step_number = new_number
-        session.add(step)
-
-    session.commit()
-
-    # Return updated steps in order
-    updated_steps = session.exec(
-        select(ProjectStep)
-        .where(ProjectStep.project_id == project_id)
-        .order_by(ProjectStep.step_number)
-    ).all()
-
-    return [
-        ProjectStepRead(
-            id=s.id,
-            step_number=s.step_number,
-            title=s.title,
-            content=s.content,
-            created_at=s.created_at
-        )
-        for s in updated_steps
-    ]
 
 
 @router.post("/projects/{project_id}/bom", response_model=BillOfMaterialRead, status_code=status.HTTP_201_CREATED)

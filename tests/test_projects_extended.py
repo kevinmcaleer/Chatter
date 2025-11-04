@@ -156,7 +156,6 @@ class TestProjectUnpublish:
 class TestStepReordering:
     """Test step reordering functionality"""
 
-    @pytest.mark.skip(reason="Step reorder endpoint needs Body() parameter fix - TODO")
     def test_reorder_steps(self, auth_client: TestClient, session: Session, test_project: Project):
         """Test reordering project steps"""
         # Create steps
@@ -172,7 +171,7 @@ class TestStepReordering:
         # Reorder: swap first and third (provide list of step IDs in new order)
         response = auth_client.put(
             f"/api/projects/{test_project.id}/steps/reorder",
-            json=[step3.id, step2.id, step1.id]  # New order: third, second, first (send as JSON array)
+            json={"step_ids": [step3.id, step2.id, step1.id]}  # New order: third, second, first
         )
 
         assert response.status_code == 200
