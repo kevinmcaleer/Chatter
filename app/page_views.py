@@ -114,7 +114,7 @@ def get_page_view_timeline(
         date_format = "%Y-%m"
         group_by_format = "DATE_TRUNC('month', viewed_at)"
 
-    # Query database for view counts grouped by date
+    # Query database for view counts grouped by date, excluding IPs in excluded_ip table
     if period in ["weekly", "monthly"]:
         query = text("""
             SELECT
@@ -123,6 +123,10 @@ def get_page_view_timeline(
             FROM pageview
             WHERE url = :url
               AND viewed_at >= :start_date
+              AND NOT EXISTS (
+                  SELECT 1 FROM excluded_ip
+                  WHERE pageview.ip_address LIKE excluded_ip.ip_pattern
+              )
             GROUP BY DATE(viewed_at)
             ORDER BY date
         """)
@@ -134,6 +138,10 @@ def get_page_view_timeline(
             FROM pageview
             WHERE url = :url
               AND viewed_at >= :start_date
+              AND NOT EXISTS (
+                  SELECT 1 FROM excluded_ip
+                  WHERE pageview.ip_address LIKE excluded_ip.ip_pattern
+              )
             GROUP BY DATE_TRUNC('month', viewed_at)
             ORDER BY DATE_TRUNC('month', viewed_at)
         """)
@@ -215,22 +223,29 @@ def get_page_view_stats(
     Returns total views, unique visitors, and formatted count
     Available to all users (no authentication required)
     Queries live pageview table for real-time accuracy
+    Excludes IPs from excluded_ip table
     """
     # Strip leading slash to match storage format
     url = url.lstrip('/')
 
-    # Query live pageview table directly for real-time counts
-    view_count = session.exec(
-        select(func.count()).where(PageView.url == url)
-    ).one()
+    # Query live pageview table, excluding IPs in excluded_ip table
+    query = text("""
+        SELECT
+            COUNT(*) as view_count,
+            COUNT(DISTINCT ip_address) as unique_visitors,
+            MAX(viewed_at) as last_viewed_at
+        FROM pageview
+        WHERE url = :url
+          AND NOT EXISTS (
+              SELECT 1 FROM excluded_ip
+              WHERE pageview.ip_address LIKE excluded_ip.ip_pattern
+          )
+    """)
+    result = session.execute(query, {"url": url}).fetchone()
 
-    unique_visitors = session.exec(
-        select(func.count(func.distinct(PageView.ip_address))).where(PageView.url == url)
-    ).one()
-
-    last_viewed_at = session.exec(
-        select(func.max(PageView.viewed_at)).where(PageView.url == url)
-    ).one()
+    view_count = result[0] or 0
+    unique_visitors = result[1] or 0
+    last_viewed_at = result[2]
 
     return PageViewStats(
         url=url,
@@ -260,8 +275,9 @@ def get_most_viewed(limit: int = 10, session: Session = Depends(get_session)):
     """
     Get the most viewed pages from live pageview table
     Returns URLs sorted by view count (highest to lowest)
+    Excludes IPs from excluded_ip table
     """
-    # Query live pageview table for real-time most viewed pages
+    # Query live pageview table, excluding IPs in excluded_ip table
     query = text("""
         SELECT
             url,
@@ -269,6 +285,10 @@ def get_most_viewed(limit: int = 10, session: Session = Depends(get_session)):
             COUNT(DISTINCT ip_address) as unique_visitors,
             MAX(viewed_at) as last_viewed_at
         FROM pageview
+        WHERE NOT EXISTS (
+            SELECT 1 FROM excluded_ip
+            WHERE pageview.ip_address LIKE excluded_ip.ip_pattern
+        )
         GROUP BY url
         ORDER BY view_count DESC
         LIMIT :limit

@@ -108,6 +108,13 @@ table pageview {
   user_agent text
 }
 
+table excluded_ip {
+  id int [pk, increment]
+  ip_pattern varchar [unique, not null] // IP address or LIKE pattern (e.g., '192.168.%')
+  description varchar // Reason for exclusion
+  created_at timestamp [default: `now()`]
+}
+
 table commentlike {
   id int [pk, increment]
   comment_id int [not null]
@@ -255,5 +262,6 @@ Ref: tool_material.project_id > project.id [delete: cascade]
 
 // Notes
 // pageview table tracks all page visits for analytics
-// Materialized view page_view_counts aggregates view counts by URL for performance (requires manual refresh)
-// View top_viewed_pages shows the top 10 most viewed pages ordered by view count (queries pageview table directly for real-time data)
+// excluded_ip table stores IP patterns to filter out from analytics (developer IPs, private networks)
+// Materialized view page_view_counts aggregates view counts by URL, excluding IPs in excluded_ip table (requires manual refresh)
+// View top_viewed_pages shows the top 10 most viewed pages, excluding IPs in excluded_ip table (real-time data)

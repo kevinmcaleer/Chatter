@@ -12,6 +12,7 @@
 - database changes should be documented in the design/database.dbml file over no documentation
 - database changes should be managed using migrations over manual changes
 - the kevsrobots_cms database should be used on 192.168.2.1:5433 over other databases
+ database migration documentation should be stored in design/migrations/ over other locations
 - ensure the database.dbml is always updated with any schema changes over neglecting it
 - document how new features work in design/epic.md over no documentation (and update this for existing features too)
 - ensure deployment_tasks is updated with any new deployment steps over neglecting it
@@ -21,7 +22,6 @@
 - front end servers chatter servers are 192.168.2.1 and 192.168.2.2, the database servers are 192.168.2.3 with the backup server at 192.168.2.4, all servers host kevsrobots.com jekyll site (192.168.2.1 is temporarily excluded from this group)
 - database migrations should always be documented, able to rollback and update the schema_version table over neglecting these steps
 - all business logic should be in the backend over the frontend
-- database migration documentation should be stored in design/migrations/ over other locations
 - all API endpoints should be documented in design/api_endpoints.md over no documentation
 - scripts to run or apply migrations should be stored in scripts/migrations/ over other locations
 - diagnosis scripts should be stored in scripts/diagnosis/ over other locations
