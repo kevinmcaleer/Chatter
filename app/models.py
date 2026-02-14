@@ -56,7 +56,7 @@ class Like(SQLModel, table=True):
 
 
 class Comment(SQLModel, table=True):
-    __tablename__ = "comment"  # Match existing table name in database
+    __tablename__ = "comments"  # Plural table name (migrated from 'comment')
 
     id: Optional[int] = Field(default=None, primary_key=True)
 
