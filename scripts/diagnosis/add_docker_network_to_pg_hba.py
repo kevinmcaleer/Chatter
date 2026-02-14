@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""Add Docker bridge networks to pg_hba.conf"""
+import psycopg2
+
+DB_HOST = "192.168.2.3"
+DB_PORT = "5433"
+DB_NAME = "kevsrobots_cms"
+DB_USER = "Hd4AZn:NlSpH"
+DB_PASSWORD = "8&0+6849Mx#S"
+
+print("=" * 70)
+print("Adding Docker Networks to pg_hba.conf")
+print("=" * 70)
+print()
+
+# SSH to database server and update pg_hba.conf
+print("Run this on the database server (192.168.2.3):")
+print()
+print("ssh kev@192.168.2.3")
+print()
+print("# Find the PostgreSQL container")
+print("CONTAINER=$(docker ps --filter name=postgres -q | head -1)")
+print()
+print("# Backup current pg_hba.conf")
+print("docker cp $CONTAINER:/etc/postgresql/pg_hba.conf /tmp/pg_hba.conf.backup.$(date +%Y%m%d_%H%M%S)")
+print()
+print("# Add Docker networks to pg_hba.conf")
+print("cat > /tmp/pg_hba_update.conf << 'EOF'")
+print("# PostgreSQL Client Authentication Configuration File")
+print("# TYPE  DATABASE        USER            ADDRESS                 METHOD")
+print()
+print("# Local connections")
+print("local   all             postgres                                trust")
+print("local   all             all                                     peer")
+print()
+print("# IPv4 local connections:")
+print("host    all             postgres        127.0.0.1/32            trust")
+print()
+print("# CHATTER APPLICATION - Server IPs")
+print('host    kevsrobots_cms  "Hd4AZn:NlSpH"  192.168.2.1/32          md5')
+print('host    kevsrobots_cms  "Hd4AZn:NlSpH"  192.168.2.2/32          md5')
+print('host    kevsrobots_cms  "Hd4AZn:NlSpH"  192.168.2.3/32          md5')
+print('host    kevsrobots_cms  "Hd4AZn:NlSpH"  192.168.2.4/32          md5')
+print()
+print("# CHATTER APPLICATION - Docker bridge networks")
+print('host    kevsrobots_cms  "Hd4AZn:NlSpH"  172.17.0.0/16           md5  # Docker default bridge')
+print('host    kevsrobots_cms  "Hd4AZn:NlSpH"  172.18.0.0/16           md5  # Docker custom networks')
+print('host    kevsrobots_cms  "Hd4AZn:NlSpH"  172.19.0.0/16           md5  # Docker custom networks')
+print('host    kevsrobots_cms  "Hd4AZn:NlSpH"  172.20.0.0/16           md5  # Docker custom networks')
+print()
+print("# Allow entire 192.168.2.0/24 subnet")
+print('host    kevsrobots_cms  "Hd4AZn:NlSpH"  192.168.2.0/24          md5')
+print()
+print("# IPv4 local connections (other users)")
+print("host    all             all             127.0.0.1/32            scram-sha-256")
+print()
+print("# IPv6 local connections:")
+print("host    all             all             ::1/128                 scram-sha-256")
+print("EOF")
+print()
+print("# Copy to container")
+print("docker cp /tmp/pg_hba_update.conf $CONTAINER:/etc/postgresql/pg_hba.conf")
+print()
+print("# Reload PostgreSQL")
+print("docker exec $CONTAINER psql -U postgres -p 5433 -c 'SELECT pg_reload_conf();'")
+print()
+print("echo 'Done! Docker networks now allowed'")
+print()
