@@ -7,8 +7,8 @@ if TYPE_CHECKING:
     from .project_models import Project
 
 class User(SQLModel, table=True):
-    __tablename__ = "user"  # Match existing table name in database
-    __table_args__ = {'quote': True}  # Quote table name because 'user' is a reserved keyword
+    __tablename__ = "users"  # Plural table name (migrated from 'user')
+    __table_args__ = {'quote': False}  # No longer needed with plural name
 
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(index=True, unique=True)
@@ -40,7 +40,7 @@ class User(SQLModel, table=True):
     projects: List["Project"] = Relationship(back_populates="author", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 class Like(SQLModel, table=True):
-    __tablename__ = "like"  # Match existing table name in database
+    __tablename__ = "likes"  # Plural table name (migrated from 'like')
 
     id: Optional[int] = Field(default=None, primary_key=True)
 
@@ -49,7 +49,7 @@ class Like(SQLModel, table=True):
     entity_type: Optional[str] = Field(default=None, max_length=50)  # e.g., "project", "tutorial"
     entity_id: Optional[int] = Field(default=None)  # ID of the entity being liked
 
-    user_id: int = Field(foreign_key="user.id", index=True)  # Index for fast lookups by user
+    user_id: int = Field(foreign_key="users.id", index=True)  # Index for fast lookups by user
     created_at: datetime = Field(default_factory=datetime.utcnow)  # Track when like was created
 
     user: Optional["User"] = Relationship(back_populates="likes")
@@ -68,7 +68,7 @@ class Comment(SQLModel, table=True):
     content: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     edited_at: Optional[datetime] = None  # Track when comment was last edited
-    user_id: int = Field(foreign_key="user.id", index=True)  # Index for fast lookups by user
+    user_id: int = Field(foreign_key="users.id", index=True)  # Index for fast lookups by user
 
     # Moderation fields
     is_flagged: bool = Field(default=False)  # Whether comment has been flagged for review
@@ -76,7 +76,7 @@ class Comment(SQLModel, table=True):
     flag_reasons: Optional[str] = None  # JSON string of report reasons
     is_hidden: bool = Field(default=False)  # Admin can hide abusive comments
     reviewed_at: Optional[datetime] = None  # When admin reviewed the flagged comment
-    reviewed_by: Optional[int] = Field(default=None, foreign_key="user.id")  # Admin who reviewed
+    reviewed_by: Optional[int] = Field(default=None, foreign_key="users.id")  # Admin who reviewed
 
     # Soft delete fields
     is_removed: bool = Field(default=False)  # User can soft-delete their own comments
@@ -86,7 +86,7 @@ class Comment(SQLModel, table=True):
     like_count: int = Field(default=0, index=True)  # Number of likes this comment has received
 
     # Reply/threading fields (Issue #43)
-    parent_comment_id: Optional[int] = Field(default=None, foreign_key="comment.id", index=True)  # Parent comment for replies
+    parent_comment_id: Optional[int] = Field(default=None, foreign_key="comments.id", index=True)  # Parent comment for replies
     reply_count: int = Field(default=0)  # Denormalized count of direct replies
 
     user: Optional["User"] = Relationship(back_populates="comments", sa_relationship_kwargs={"foreign_keys": "[Comment.user_id]"})
@@ -110,10 +110,10 @@ class Comment(SQLModel, table=True):
     )
 
 class CommentVersion(SQLModel, table=True):
-    __tablename__ = "commentversion"  # Match existing table name in database
+    __tablename__ = "comment_versions"  # Plural table name (migrated from 'commentversion')
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    comment_id: int = Field(foreign_key="comment.id", index=True)
+    comment_id: int = Field(foreign_key="comments.id", index=True)
     content: str  # Previous version of the comment content
     edited_at: datetime = Field(default_factory=datetime.utcnow)  # When this version was created
 
@@ -124,11 +124,11 @@ class CommentLike(SQLModel, table=True):
     Track likes on comments (Issue #69)
     Users can like/upvote comments to show agreement or support
     """
-    __tablename__ = "commentlike"  # Match existing table name in database
+    __tablename__ = "comment_likes"  # Plural table name (migrated from 'commentlike')
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    comment_id: int = Field(foreign_key="comment.id", index=True)  # Index for fast lookups by comment
-    user_id: int = Field(foreign_key="user.id", index=True)  # Index for fast lookups by user
+    comment_id: int = Field(foreign_key="comments.id", index=True)  # Index for fast lookups by comment
+    user_id: int = Field(foreign_key="users.id", index=True)  # Index for fast lookups by user
     created_at: datetime = Field(default_factory=datetime.utcnow)  # Track when like was created
 
     comment: Optional["Comment"] = Relationship(back_populates="likes")
@@ -140,15 +140,15 @@ class CommentLike(SQLModel, table=True):
         unique_together = [("comment_id", "user_id")]
 
 class AccountLog(SQLModel, table=True):
-    __tablename__ = "accountlog"  # Match existing table name in database
+    __tablename__ = "account_logs"  # Plural table name (migrated from 'accountlog')
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="user.id")
+    user_id: int = Field(foreign_key="users.id")
     action: str  # created, updated, activated, deactivated, deleted
     field_changed: Optional[str] = None  # specific field that was changed
     old_value: Optional[str] = None  # previous value
     new_value: Optional[str] = None  # new value
-    changed_by: Optional[int] = Field(default=None, foreign_key="user.id")  # user_id of who made the change
+    changed_by: Optional[int] = Field(default=None, foreign_key="users.id")  # user_id of who made the change
     changed_at: datetime = Field(default_factory=datetime.utcnow)
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
@@ -158,7 +158,7 @@ class AccountLog(SQLModel, table=True):
     changed_by_user: Optional["User"] = Relationship(back_populates="changed_logs", sa_relationship_kwargs={"foreign_keys": "[AccountLog.changed_by]"})
 
 class PageView(SQLModel, table=True):
-    __tablename__ = "pageview"  # Match existing table name in database
+    __tablename__ = "page_views"  # Plural table name (migrated from 'pageview')
 
     id: Optional[int] = Field(default=None, primary_key=True)
     url: str = Field(index=True)  # Index for fast lookups by URL

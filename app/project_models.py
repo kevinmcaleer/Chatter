@@ -16,12 +16,12 @@ class Project(SQLModel, table=True):
     Core project table with mandatory and optional fields
     Users can create, manage and publish their projects
     """
-    __tablename__ = "project"
+    __tablename__ = "projects"  # Plural table name (migrated from 'project')
 
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str = Field(max_length=255, index=True)
     description: str = Field(nullable=False)
-    author_id: int = Field(foreign_key="user.id", index=True)
+    author_id: int = Field(foreign_key="users.id", index=True)
     status: str = Field(default="draft", max_length=20, index=True)  # 'draft' or 'published'
     background: Optional[str] = Field(default=None)  # Markdown
     code_link: Optional[str] = Field(default=None, max_length=500)
@@ -56,10 +56,10 @@ class ProjectTag(SQLModel, table=True):
     Category tags for projects (lowercase, user-defined)
     Multiple tags can be added per project
     """
-    __tablename__ = "project_tag"
+    __tablename__ = "project_tags"  # Plural table name
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", index=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
     tag_name: str = Field(max_length=100, index=True)
 
     # Relationships
@@ -74,10 +74,10 @@ class ProjectStep(SQLModel, table=True):
     Sequential instruction steps for projects
     Each step has a number, title, and markdown content
     """
-    __tablename__ = "project_step"
+    __tablename__ = "project_steps"  # Plural table name
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", index=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
     step_number: int = Field(nullable=False)
     title: str = Field(max_length=255)
     content: str = Field(nullable=False)  # Markdown
@@ -98,7 +98,7 @@ class BillOfMaterial(SQLModel, table=True):
     __tablename__ = "bill_of_material"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", index=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
     item_name: str = Field(max_length=255)
     description: Optional[str] = Field(default=None)
     quantity: int = Field(default=1)
@@ -131,10 +131,10 @@ class ProjectComponent(SQLModel, table=True):
     Many-to-many relationship between projects and components
     Includes quantity and notes
     """
-    __tablename__ = "project_component"
+    __tablename__ = "project_components"  # Plural table name
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", index=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
     component_id: int = Field(foreign_key="component.id", index=True)
     quantity: int = Field(default=1)
     notes: Optional[str] = Field(default=None)
@@ -152,10 +152,10 @@ class ProjectFile(SQLModel, table=True):
     Downloadable files for projects (STL, PDFs, code, etc.)
     25MB limit per project enforced in application
     """
-    __tablename__ = "project_file"
+    __tablename__ = "project_files"  # Plural table name
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", index=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
     filename: str = Field(max_length=255)  # Stored filename
     original_filename: str = Field(max_length=255)  # User's original filename
     file_size: int = Field(nullable=False)  # Size in bytes
@@ -172,10 +172,10 @@ class ProjectImage(SQLModel, table=True):
     Image gallery for projects
     Supports drag-drop ordering, first image is primary
     """
-    __tablename__ = "project_image"
+    __tablename__ = "project_images"  # Plural table name
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", index=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
     filename: str = Field(max_length=255)  # Stored filename
     original_filename: str = Field(max_length=255)  # User's original filename
     display_order: int = Field(default=0, index=True)
@@ -194,10 +194,10 @@ class ProjectLink(SQLModel, table=True):
     External resource links for projects
     YouTube videos, courses, articles, related projects
     """
-    __tablename__ = "project_link"
+    __tablename__ = "project_links"  # Plural table name
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", index=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
     url: str = Field(max_length=500)
     title: str = Field(max_length=255)
     link_type: str = Field(max_length=50, index=True)  # 'resource', 'video', 'course', 'article', 'related_project'
@@ -214,7 +214,7 @@ class ToolMaterial(SQLModel, table=True):
     __tablename__ = "tool_material"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    project_id: int = Field(foreign_key="project.id", index=True)
+    project_id: int = Field(foreign_key="projects.id", index=True)
     name: str = Field(max_length=255)
     tool_type: str = Field(max_length=20)  # 'tool' or 'material'
     notes: Optional[str] = Field(default=None)
