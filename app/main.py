@@ -55,7 +55,8 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:4000",
         "http://localhost:8001",
-        "http://0.0.0.0:4000"
+        "http://0.0.0.0:4000",
+        "http://local.kevsrobots.com:4000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
