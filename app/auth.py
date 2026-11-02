@@ -4,7 +4,7 @@ from sqlmodel import Session, select
 from .models import User, Like, Comment
 from .schemas import UserCreate, UserRead, UserUpdate
 from .database import get_session
-from .utils import decode_access_token, create_access_token, hash_password, verify_password
+from .utils import decode_access_token, create_access_token, hash_password, verify_password, ACCESS_TOKEN_MAX_AGE_SECONDS
 from fastapi import Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -184,7 +184,7 @@ def login_api(request: Request, form_data: OAuth2PasswordRequestForm = Depends()
         value=f"Bearer {token}",
         httponly=True,
         secure=ENVIRONMENT == "production",  # Only send over HTTPS in production
-        max_age=1800,
+        max_age=ACCESS_TOKEN_MAX_AGE_SECONDS,
         samesite="lax",
         domain=".kevsrobots.com" if ENVIRONMENT == "production" else None
     )
@@ -195,7 +195,7 @@ def login_api(request: Request, form_data: OAuth2PasswordRequestForm = Depends()
         value=user.username,
         httponly=False,  # JavaScript can read this
         secure=ENVIRONMENT == "production",
-        max_age=1800,
+        max_age=ACCESS_TOKEN_MAX_AGE_SECONDS,
         samesite="lax",
         domain=".kevsrobots.com" if ENVIRONMENT == "production" else None
     )
@@ -600,6 +600,7 @@ def login_user(
         value=f"Bearer {token}",
         httponly=True,
         secure=ENVIRONMENT == "production",
+        max_age=ACCESS_TOKEN_MAX_AGE_SECONDS,
         samesite="lax",
         domain=".kevsrobots.com" if ENVIRONMENT == "production" else None
     )
@@ -610,6 +611,7 @@ def login_user(
         value=user.username,
         httponly=False,  # JavaScript can read this
         secure=ENVIRONMENT == "production",
+        max_age=ACCESS_TOKEN_MAX_AGE_SECONDS,
         samesite="lax",
         domain=".kevsrobots.com" if ENVIRONMENT == "production" else None
     )
