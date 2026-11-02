@@ -11,6 +11,7 @@ from .accounts import router as accounts_router
 from .page_views import router as page_views_router
 from .profile import router as profile_router
 from .projects import router as projects_router
+from .session_renewal import SlidingSessionMiddleware
 from dotenv import load_dotenv
 import os
 import logging
@@ -45,6 +46,10 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
 # Add rate limiting exception handler
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Renew login cookies on use so active users stay logged in.
+# Added before CORS so CORS stays the outermost middleware.
+app.add_middleware(SlidingSessionMiddleware)
 
 # Configure CORS - MUST allow origin explicitly
 app.add_middleware(

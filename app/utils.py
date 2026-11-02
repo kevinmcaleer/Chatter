@@ -11,7 +11,13 @@ if not SECRET_KEY:
 # Keep secret key private!
 # SECRET_KEY = "supersecretkey123"  # Replace with a real secret!
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# How long a login lasts. Default 7 days; override with the
+# ACCESS_TOKEN_EXPIRE_MINUTES environment variable. Tokens are renewed on
+# use once past half their life (see app/session_renewal.py), so this is
+# really "how long you can be away before you have to log in again".
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", str(60 * 24 * 7)))
+ACCESS_TOKEN_MAX_AGE_SECONDS = ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
