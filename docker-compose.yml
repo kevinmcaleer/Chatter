@@ -1,6 +1,14 @@
 # Production docker-compose configuration for Chatter
 # Uses external PostgreSQL database (not the bundled postgres container)
-# Usage: docker-compose -f docker-compose.prod.yml up -d
+# Run from this folder:
+#   docker compose up -d --build     # rebuild from source and restart
+#   docker compose up -d             # restart with the existing image
+#
+# Like the other kevsrobots services, Chatter brings its own Cloudflare
+# Tunnel connector, so chatter.kevsrobots.com works from whichever Pi runs
+# this stack (run it on several and Cloudflare spreads the traffic). Set
+# CHATTER_TUNNEL_TOKEN in .env to the token of the tunnel whose public
+# hostname chatter.kevsrobots.com points at http://127.0.0.1:8006.
 
 services:
   # Chatter Application
@@ -40,6 +48,19 @@ services:
       timeout: 3s
       retries: 3
       start_period: 40s
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    network_mode: host
+    # ``--edge-ip-version 4`` keeps the QUIC socket IPv4-only, so the tunnel
+    # survives a Pi coming back from a power cut with no working IPv6 route
+    # (same setting as the other kevsrobots stacks).
+    command: tunnel --no-autoupdate --edge-ip-version 4 run
+    environment:
+      - TUNNEL_TOKEN=${CHATTER_TUNNEL_TOKEN}
+    depends_on:
+      - app
+    restart: unless-stopped
 
 networks:
   chatter-network:
