@@ -173,7 +173,8 @@ echo ""
 
 echo "Starting application..."
 echo "Environment: ${ENVIRONMENT:-development}"
-echo "Database: ${DATABASE_URL%%@*}@..."
+# Show only host/port/name: the part before "@" holds the username and password.
+echo "Database: ${DATABASE_URL##*@}"
 echo ""
 
 # Execute the main command (passed as arguments)

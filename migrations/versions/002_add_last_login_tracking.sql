@@ -6,10 +6,21 @@
 -- Add last_login field to user table
 -- =====================================================
 
-ALTER TABLE user ADD COLUMN IF NOT EXISTS last_login TIMESTAMP;
-
--- Add index for efficient engagement queries
-CREATE INDEX IF NOT EXISTS idx_user_last_login ON user(last_login);
-
--- Add comment for documentation
-COMMENT ON COLUMN user.last_login IS 'Timestamp of last successful login for engagement tracking';
+-- The table was renamed from "user" to "users"; "user" unquoted is a reserved
+-- word in Postgres, so the original statements always failed. Work on
+-- whichever table exists, and do nothing if the column is already there.
+DO $$
+DECLARE t text;
+BEGIN
+    IF to_regclass('public.users') IS NOT NULL THEN
+        t := 'users';
+    ELSIF to_regclass('public."user"') IS NOT NULL THEN
+        t := 'user';
+    ELSE
+        RETURN;
+    END IF;
+    EXECUTE format('ALTER TABLE %I ADD COLUMN IF NOT EXISTS last_login TIMESTAMP', t);
+    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_user_last_login ON %I (last_login)', t);
+    EXECUTE format('COMMENT ON COLUMN %I.last_login IS %L', t,
+                   'Timestamp of last successful login for engagement tracking');
+END $$;
