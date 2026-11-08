@@ -179,6 +179,7 @@ def login_api(request: Request, form_data: OAuth2PasswordRequestForm = Depends()
 
     # Respond with token in JSON AND set in cookie
     response = JSONResponse(content={"access_token": token, "token_type": "bearer"})
+    clear_host_only_login_cookies(response)
     response.set_cookie(
         key="access_token",
         value=f"Bearer {token}",
@@ -498,6 +499,16 @@ def register_user(
 
     return RedirectResponse(login_url, status_code=303)
 
+def clear_host_only_login_cookies(response, production: Optional[bool] = None) -> None:
+    """Expires login cookies set on this host alone (no Domain). In production the real ones live on
+    .kevsrobots.com; a leftover host-only access_token is sent first and keeps you bounced back to /login."""
+    if production is None:
+        production = ENVIRONMENT == "production"
+    if production:
+        for name in ("access_token", "username"):
+            response.delete_cookie(name, path="/", secure=True, httponly=name == "access_token", samesite="lax")
+
+
 def is_kevsrobots_url(url: str) -> bool:
     """True for an https address on kevsrobots.com or one of its subdomains, with no login or port in it."""
     from urllib.parse import urlsplit
@@ -603,6 +614,7 @@ def login_user(
     if user.force_password_reset:
         # Set temporary session cookie and redirect to password reset
         response = RedirectResponse(url="/force-password-reset", status_code=303)
+        clear_host_only_login_cookies(response)
         response.set_cookie(
             key="access_token",
             value=f"Bearer {token}",
@@ -617,6 +629,7 @@ def login_user(
     safe_return_to = sanitize_return_to(return_to)
     redirect_url = safe_return_to if safe_return_to else "/account"
     response = RedirectResponse(url=redirect_url, status_code=303)
+    clear_host_only_login_cookies(response)
 
     # Set secure httponly token cookie
     response.set_cookie(
