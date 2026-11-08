@@ -67,7 +67,7 @@ Process user registration.
 Display login form.
 
 **Query Parameters:**
-- `return_to` (optional) - URL to redirect to after successful login
+- `return_to` (optional) - URL to redirect to after successful login: a path here, or an `https://` address on kevsrobots.com or a subdomain (such as `https://bettercad.kevsrobots.com/#/library`). Anything else, and any login or register page, is ignored.
 - `reset` (optional) - Set to "success" to show password reset success message
 
 **Response:** HTML login page

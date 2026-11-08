@@ -498,6 +498,24 @@ def register_user(
 
     return RedirectResponse(login_url, status_code=303)
 
+def is_kevsrobots_url(url: str) -> bool:
+    """True for an https address on kevsrobots.com or one of its subdomains, with no login or port in it."""
+    from urllib.parse import urlsplit
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return False
+    host = (parts.hostname or "").lower()
+    return (
+        parts.scheme == "https"
+        and not parts.username
+        and port is None
+        and "\\" not in url
+        and (host == "kevsrobots.com" or host.endswith(".kevsrobots.com"))
+    )
+
+
 def sanitize_return_to(return_to: Optional[str]) -> Optional[str]:
     """
     Sanitize return_to parameter to prevent redirect loops and open redirects.
@@ -514,9 +532,15 @@ def sanitize_return_to(return_to: Optional[str]) -> Optional[str]:
     if not return_to:
         return None
 
-    # Reject absolute URLs (with protocol)
+    # Absolute URLs only for kevsrobots.com sites (e.g. https://bettercad.kevsrobots.com/#/library), so apps on
+    # sibling subdomains can send people here to sign in and get them back.
     if return_to.startswith(('http://', 'https://', '//', 'ftp://', 'file://')):
-        return None
+        if not is_kevsrobots_url(return_to) or len(return_to) > 500:
+            return None
+        from urllib.parse import urlsplit
+        path = urlsplit(return_to).path
+        # Same loop guard as for relative paths: never back to a login or register page.
+        return None if path.startswith(('/login', '/register')) else return_to
 
     # Ensure it starts with /
     if not return_to.startswith('/'):
