@@ -7,7 +7,7 @@ accounts.kevsrobots.com, once ACCOUNTS_URL is set.
 
 import os
 from typing import Optional
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 from fastapi import Request
 from fastapi.responses import RedirectResponse
@@ -24,12 +24,22 @@ HOST_APPS = {
     "projects.kevsrobots.com": PROJECTS,
 }
 
+# "Sign in with kevsrobots" clients (#80), by client_id, for the chip on the login and consent pages.
+CLIENT_APPS = {
+    "snakie": SNAKIE,
+}
+
 
 def app_for_return_to(return_to: Optional[str]) -> Optional[dict]:
     """The suite app a (sanitised) return_to address belongs to, or None for Chatter's own pages."""
-    if not return_to or not return_to.startswith("https://"):
+    if not return_to:
         return None
     parts = urlsplit(return_to)
+    if return_to.startswith("/oauth/authorize"):
+        # Signing in on the way to an app's consent page: name the app that asked.
+        return CLIENT_APPS.get(dict(parse_qsl(parts.query)).get("client_id", ""))
+    if not return_to.startswith("https://"):
+        return None
     host = (parts.hostname or "").lower()
     if host in HOST_APPS:
         return HOST_APPS[host]

@@ -834,3 +834,12 @@ shares its network and runs a token (dashboard-managed) tunnel, so the hostname 
 - [ ] Copy the `chatter.kevsrobots.com/*` page rule (security level medium) and any WAF / rate-limit rules to `accounts.kevsrobots.com/*`.
 - [ ] Check `https://accounts.kevsrobots.com/login` loads, then add `ACCOUNTS_URL=https://accounts.kevsrobots.com` to `stacks/chatter/.env` on each Pi and run `docker compose -f docker-compose.prod.yml up -d` again. chatter.kevsrobots.com/login now redirects there.
 - [ ] Keep `chatter.kevsrobots.com`: likes, comments, follows, page views, the projects/status/nibsy services and BetterCAD's `/accounts/me` check still use it.
+
+## Sign in with kevsrobots (#80)
+
+- [ ] Build, push and deploy the image as above (`docker pull`, then `docker compose -f docker-compose.prod.yml up -d` on each Pi).
+- [ ] Create the tables and the `snakie` client once (all instances share one database). From one Pi, in ClusteredPi `stacks/chatter`:
+  `docker compose -f docker-compose.prod.yml exec chatter python3 -c "import os, psycopg2; c = psycopg2.connect(os.environ['DATABASE_URL']); c.cursor().execute(open('migrations/versions/020_add_oauth_sign_in.sql').read()); c.commit()"`.
+  Safe to run twice. Chatter also tries to create the tables and the client on startup, but don't rely on it: `SQLModel.metadata.create_all` fails on the `projects.primary_image_id → project_image` foreign key typo (it should be `project_images`), at least on SQLite.
+- [ ] Check `https://accounts.kevsrobots.com/oauth/authorize?client_id=snakie` shows a kevsrobots page (an error about the request is expected; "isn't registered" means the client is missing).
+- [ ] Nothing changes in Cloudflare: `/oauth/*` is served on the hostnames that already exist.

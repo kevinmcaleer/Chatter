@@ -43,6 +43,11 @@ def get_template_context(request, **kwargs):
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
+
+def is_session_token(payload: Optional[dict]) -> bool:
+    """True for a normal sign-in token. App tokens (they carry client_id) and single-purpose tokens don't count."""
+    return bool(payload) and bool(payload.get("sub")) and "client_id" not in payload and "purpose" not in payload
+
 class EmailCheckModel(BaseModel):
     email: EmailStr
 
@@ -73,7 +78,10 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Missing token")
 
     payload = decode_access_token(token)
-    if not payload:
+    if payload and "client_id" in payload and not is_browser:
+        # A "Sign in with kevsrobots" app token: only routes that check its scope (app/oauth.py require_scope) take it.
+        raise HTTPException(status_code=403, detail="App tokens can't be used here")
+    if not is_session_token(payload):
         if is_browser:
             exc = HTTPException(status_code=401, detail="Invalid or expired token")
             exc.headers = {"X-Redirect": "/login?error=session_expired"}
@@ -114,7 +122,7 @@ def get_optional_user(
         return None
 
     payload = decode_access_token(token)
-    if not payload:
+    if not is_session_token(payload):
         return None
 
     user = session.exec(select(User).where(User.username == payload["sub"])).first()
@@ -441,14 +449,16 @@ def force_password_reset_api(
     }
 
 @router.get("/logout")
-def logout(redirect: bool = True):
+def logout(redirect: bool = True, return_to: Optional[str] = None):
     """
     Logout the user by deleting the JWT cookie and username cookie.
     - If `?redirect=false`, returns JSON
-    - Otherwise, redirects to login page
+    - Otherwise, redirects to login page (keeping a safe return_to, so "Not you?" on the consent page comes back)
     """
     if redirect:
-        response = RedirectResponse(url="/login", status_code=303)
+        safe_return_to = sanitize_return_to(return_to)
+        query = f"?{urlencode({'return_to': safe_return_to})}" if safe_return_to else ""
+        response = RedirectResponse(url=f"/login{query}", status_code=303)
     else:
         response = JSONResponse(content={"message": "Logged out successfully"})
 
@@ -684,11 +694,14 @@ def account_page(request: Request, session: Session = Depends(get_session), user
 
     comments = session.exec(select(Comment).where(Comment.user_id == user.id)).all()
 
+    from .oauth import connected_apps  # imported here: app/oauth.py imports this module
+
     return templates.TemplateResponse("account.html", {
         "request": request,
         "user" : user,
         "like_count": like_count,
         "comments": comments,
+        "connected_apps": connected_apps(session, user),
     })
 
 @router.post("/account/update")

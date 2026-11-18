@@ -272,3 +272,20 @@ All account operations are logged to the `account_logs` table with the following
 - `403 Forbidden` - Insufficient privileges
 - `404 Not Found` - Resource not found
 - `422 Unprocessable Entity` - Validation error
+
+---
+
+## Sign in with kevsrobots (OAuth 2 + PKCE, #80)
+
+For apps outside `.kevsrobots.com` (Snakie web and desktop). No `/accounts` prefix. Full guide: `docs/SIGN_IN_WITH_KEVSROBOTS.md`.
+
+| Method | Path | What it does |
+|--------|------|--------------|
+| GET | `/oauth/authorize` | Checks `client_id`, `redirect_uri`, `scope` and the S256 `code_challenge`; signs the person in if needed; shows the consent page (skipped when they already allowed those scopes); redirects to `redirect_uri?code=…&state=…` or `?error=…&state=…`. Unknown client or redirect URI: 400 error page. |
+| POST | `/oauth/authorize` | Consent form: `consent` (signed request, 10 minutes) and `decision` (`allow` or `cancel`). Cookie sign-in required. |
+| POST | `/oauth/token` | Form body. `grant_type=authorization_code` (`client_id`, `code`, `code_verifier`, `redirect_uri`) or `grant_type=refresh_token` (`client_id`, `refresh_token`). Returns `access_token` (1 hour JWT with `client_id`, `scope`, `gid`), `token_type`, `expires_in`, `refresh_token` (90 days, rotated on use), `scope`. Errors: 400 `invalid_request` / `invalid_grant` / `unsupported_grant_type`, 401 `invalid_client`. |
+| POST | `/oauth/revoke` | Form body `token` (refresh or access), optional `client_id`. Disconnects that sign-in. Always 200. |
+| GET | `/oauth/userinfo` | Scope `profile`. `username`, `name`, `picture`, `profile_url`. |
+| POST | `/account/connected-apps/disconnect` | Account page form, `client_id`. Disconnects every sign-in of that app. |
+
+App tokens are refused (403) by every route that uses `get_current_user`; only routes using `require_scope(...)` accept them.

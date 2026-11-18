@@ -373,7 +373,14 @@ All URLs are normalized before storage:
 - Parallel API requests in JavaScript for multiple widgets
 - Lazy loading of comments
 
-### Future Enhancements
+#### Sign in with kevsrobots (#80)
+- ✅ OAuth 2 authorization code + PKCE for apps outside .kevsrobots.com (Snakie web and desktop, loopback redirects)
+- ✅ Consent page in the suite look, skipped when the scopes were already allowed
+- ✅ Short-lived app tokens (1 hour) with `client_id`/`scope` claims, accepted only where `require_scope()` is used
+- ✅ Rotating refresh tokens (90 days) with reuse detection, `/oauth/revoke`, Connected apps on `/account`
+- Tables `oauth_clients`, `oauth_codes`, `oauth_grants`, `oauth_refresh_tokens` (migration 020); `snakie` seeded
+
+## Future Enhancements
 - Comment replies/threading (#43)
 - User ability to edit/delete own comments (#46)
 - @mentions in comments (#45)

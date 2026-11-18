@@ -11,6 +11,7 @@ from .accounts import router as accounts_router
 from .page_views import router as page_views_router
 from .profile import router as profile_router
 from .projects import router as projects_router
+from .oauth import router as oauth_router, seed_clients
 from .session_renewal import SlidingSessionMiddleware
 from dotenv import load_dotenv
 import os
@@ -40,7 +41,8 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
     from fastapi.responses import JSONResponse
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail}
+        content={"detail": exc.detail},
+        headers=getattr(exc, "headers", None),  # keeps WWW-Authenticate for app tokens (#80)
     )
 
 # Add rate limiting exception handler
@@ -62,6 +64,7 @@ app.add_middleware(
         "http://localhost:8001",
         "http://0.0.0.0:4000",
         "http://local.kevsrobots.com:4000",
+        "https://app.snakie.org",  # Snakie web: Sign in with kevsrobots token calls (#80)
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -76,10 +79,18 @@ app.include_router(accounts_router, prefix="/accounts")
 app.include_router(page_views_router, prefix="/analytics")
 app.include_router(profile_router)
 app.include_router(projects_router, prefix="/api")
+app.include_router(oauth_router)
 
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+    try:
+        from sqlmodel import Session
+        from .database import engine
+        with Session(engine) as session:
+            seed_clients(session)
+    except Exception:  # never stop the app starting over a seed
+        logging.getLogger(__name__).exception("Couldn't seed the Sign in with kevsrobots clients")
 
 @app.get("/health")
 async def health_check():

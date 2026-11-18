@@ -170,6 +170,34 @@
         </div>
       </div>
 
+      <!-- Connected apps (Sign in with kevsrobots, #80) -->
+      <div class="card shadow-sm mb-4" id="connected-apps">
+        <div class="card-header bg-card-blue text-white">
+          <h5 class="mb-0"><i class="fas fa-plug me-3"></i>Connected apps</h5>
+        </div>
+        <div class="card-body p-4">
+          {% if connected_apps %}
+          <ul class="list-group list-group-flush">
+            {% for app in connected_apps %}
+            <li class="list-group-item px-0 d-flex justify-content-between align-items-start gap-3">
+              <div>
+                <strong>{{ app.name }}</strong>
+                <small class="text-muted d-block">{{ app.permissions | join("; ") }}</small>
+                <small class="text-muted d-block">Last used {{ app.last_used_at.strftime("%d %b %Y") }}</small>
+              </div>
+              <form method="post" action="/account/connected-apps/disconnect">
+                <input type="hidden" name="client_id" value="{{ app.client_id }}">
+                <button type="submit" class="btn btn-outline-danger btn-sm">Disconnect</button>
+              </form>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="text-muted mb-0">No apps are connected. When you sign in to an app like Snakie with your kevsrobots account, it shows up here.</p>
+          {% endif %}
+        </div>
+      </div>
+
       <!-- Danger Zone -->
       <div class="card shadow-sm border-danger">
         <div class="card-header bg-danger text-white">

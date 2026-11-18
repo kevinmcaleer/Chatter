@@ -76,6 +76,15 @@
   .kr-code { font-family: var(--font-mono); letter-spacing: .18em; text-transform: uppercase; }
   .kr-btn { height: 46px; border: 0; border-radius: var(--kr-radius); background: var(--kr-button); color: #fff; font: 600 15px var(--font-ui); cursor: pointer; }
   .kr-btn:hover { filter: brightness(1.06); }
+  .kr-btn-ghost { background: transparent; color: var(--kr-ink); border: 1px solid var(--kr-line); }
+  .kr-btn-ghost:hover { background: var(--kr-sunk); filter: none; }
+  .kr-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .kr-who { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; color: var(--kr-ink-soft); margin: 0; }
+  .kr-who b { color: var(--kr-ink); }
+  .kr-perms { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .kr-perms li { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; font-size: 14.5px; }
+  .kr-perms li::before { content: ""; width: 8px; height: 8px; margin: 7px 0 0 6px; border-radius: 50%; background: var(--kr-green); }
+  .kr-note { margin: 0; font-size: 13px; color: var(--kr-ink-soft); }
   .kr-alert { border-radius: var(--kr-radius); padding: 10px 12px; font-size: 14px; }
   .kr-alert-error { background: var(--kr-danger-soft); color: var(--kr-ink); border: 1px solid var(--kr-red); }
   .kr-alert-ok { background: var(--kr-success-soft); color: var(--kr-ink); border: 1px solid var(--kr-success); }
