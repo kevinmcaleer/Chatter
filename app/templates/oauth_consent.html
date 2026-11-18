@@ -1,0 +1,26 @@
+{% extends "auth_base.html" %}
+
+{% block title %}Allow {{ client.name }}{% endblock %}
+
+{% block content %}
+<h1>Allow {{ client.name }} to use your account?</h1>
+<p class="kr-sub">{{ client.name }} will be able to:</p>
+
+<ul class="kr-perms">
+  {% for scope, wording in scopes %}<li><span>{{ wording }}</span></li>{% endfor %}
+</ul>
+
+<p class="kr-note">It never sees your password, and it can't change your account. Your code stays on GitHub.</p>
+
+<p class="kr-who"><span>Signed in as <b>{{ user.username }}</b></span><a href="{{ switch_account }}">Not you?</a></p>
+
+<form method="post" action="/oauth/authorize" class="kr-form">
+  <input type="hidden" name="consent" value="{{ consent }}">
+  <div class="kr-actions">
+    <button type="submit" name="decision" value="cancel" class="kr-btn kr-btn-ghost">Cancel</button>
+    <button type="submit" name="decision" value="allow" class="kr-btn" autofocus>Allow</button>
+  </div>
+</form>
+
+<p class="kr-foot">You can disconnect {{ client.name }} at any time from <a href="/account#connected-apps">your account</a>.</p>
+{% endblock %}
