@@ -820,3 +820,13 @@ docker build -t 192.168.2.1:5000/kevsrobots/chatter:latest .
 docker push 192.168.2.1:5000/kevsrobots/chatter:latest
 docker-compose down && docker-compose up -d
 ```
+
+---
+
+## accounts.kevsrobots.com (#81)
+
+- [ ] Cloudflare Tunnel: add `accounts.kevsrobots.com → http://192.168.2.2:8006` to the `kevsrobots` tunnel ingress, above the catch-all (`/etc/cloudflared/config.yml`, then `cloudflared tunnel ingress validate` and `sudo systemctl restart cloudflared`; or Zero Trust › Tunnels › Public hostnames).
+- [ ] DNS: `cloudflared tunnel route dns kevsrobots accounts.kevsrobots.com` (proxied CNAME to the tunnel).
+- [ ] Copy the `chatter.kevsrobots.com/*` page rule (security level medium) and any WAF / rate-limit rules to `accounts.kevsrobots.com/*`.
+- [ ] Check `https://accounts.kevsrobots.com/login` loads, then set `ACCOUNTS_URL=https://accounts.kevsrobots.com` in the app's environment and restart. chatter.kevsrobots.com/login now redirects there.
+- [ ] Keep `chatter.kevsrobots.com`: likes, comments, follows, page views, the projects/status/nibsy services and BetterCAD's `/accounts/me` check still use it.

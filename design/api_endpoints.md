@@ -54,6 +54,12 @@ Create a new user account.
 
 ---
 
+### GET /reset-password
+HTML form for resetting a password with an admin-issued reset code. Optional query `username` pre-fills the field. Redirects to `ACCOUNTS_URL` when set and the request is on another host.
+
+### POST /reset-password
+Form fields `username`, `reset_code`, `new_password`, `confirm_password`. On success: 303 to `/login?reset=done`. On failure the form is shown again with the reason (same checks as `POST /api/reset-password`).
+
 ## User Endpoints (Authentication Required)
 
 ### Get Current Account
