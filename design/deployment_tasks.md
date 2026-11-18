@@ -820,3 +820,17 @@ docker build -t 192.168.2.1:5000/kevsrobots/chatter:latest .
 docker push 192.168.2.1:5000/kevsrobots/chatter:latest
 docker-compose down && docker-compose up -d
 ```
+
+---
+
+## accounts.kevsrobots.com (#81)
+
+Production runs from ClusteredPi `stacks/chatter/docker-compose.prod.yml`: the app plus a `cloudflared` container that
+shares its network and runs a token (dashboard-managed) tunnel, so the hostname is added in the dashboard, not a config file.
+
+- [ ] Build and publish the image from this repo: `docker compose build && docker compose push` (→ `192.168.2.1:5000/kevsrobots/chatter:latest`).
+- [ ] On each Pi, in ClusteredPi `stacks/chatter`: `docker pull 192.168.2.1:5000/kevsrobots/chatter:latest`, then `docker compose -f docker-compose.prod.yml up -d` (never `--remove-orphans`). The new pages show straight away; nothing moves host yet.
+- [ ] Cloudflare Zero Trust › Networks › Tunnels › the Chatter tunnel › Public hostnames › Add: `accounts.kevsrobots.com`, service `HTTP`, URL `localhost:8006` (the same as the existing chatter.kevsrobots.com entry). The dashboard creates the proxied DNS record.
+- [ ] Copy the `chatter.kevsrobots.com/*` page rule (security level medium) and any WAF / rate-limit rules to `accounts.kevsrobots.com/*`.
+- [ ] Check `https://accounts.kevsrobots.com/login` loads, then add `ACCOUNTS_URL=https://accounts.kevsrobots.com` to `stacks/chatter/.env` on each Pi and run `docker compose -f docker-compose.prod.yml up -d` again. chatter.kevsrobots.com/login now redirects there.
+- [ ] Keep `chatter.kevsrobots.com`: likes, comments, follows, page views, the projects/status/nibsy services and BetterCAD's `/accounts/me` check still use it.

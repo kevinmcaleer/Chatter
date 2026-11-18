@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}Sign in{% endblock %} · kevsrobots</title>
+  <link rel="icon" href="https://www.kevsrobots.com/assets/img/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&family=Oswald:wght@500;600&display=swap">
+  {% include "_suite_style.html" %}
+</head>
+<body>
+  <div class="kr-signin">
+    <aside class="kr-brand" aria-label="About your kevsrobots account">
+      <a class="kr-wordmark" href="https://www.kevsrobots.com">
+        <img src="https://www.kevsrobots.com/assets/img/logo_red.png" alt="" width="36" height="36">
+        <span>kevsrobots</span>
+      </a>
+      <h2>One account for all your robot builds</h2>
+      <p>Follow lessons, keep your projects, and pass work between Snakie and BetterCAD.</p>
+      <ul class="kr-apps">
+        <li><span class="kr-app-ic kr-red">KR</span><span><b>Learn</b><small>Courses, lessons and part guides</small></span></li>
+        <li><span class="kr-app-ic kr-gold">P</span><span><b>Projects</b><small>Your builds, steps and parts lists</small></span></li>
+        <li><span class="kr-app-ic kr-green">S</span><span><b>Snakie by kevsrobots</b><small>Write and run MicroPython</small></span></li>
+        <li><span class="kr-app-ic kr-violet">B</span><span><b>BetterCAD by kevsrobots</b><small>Design parts to 3D print</small></span></li>
+      </ul>
+    </aside>
+
+    <main class="kr-formside">
+      <div class="kr-card">
+        <a class="kr-wordmark kr-wordmark-small" href="https://www.kevsrobots.com">
+          <img src="https://www.kevsrobots.com/assets/img/logo_red.png" alt="" width="28" height="28">
+          <span>kevsrobots</span>
+        </a>
+        {% if continue_app %}
+        <span class="kr-continue kr-{{ continue_app.accent }}-soft"><i class="kr-{{ continue_app.accent }}">{{ continue_app.mark }}</i>Continue to {{ continue_app.name }}</span>
+        {% endif %}
+        {% block content %}{% endblock %}
+        <p class="kr-legal">
+          <a href="https://www.kevsrobots.com/privacy/">Privacy</a> ·
+          <a href="https://www.kevsrobots.com/terms/">Terms</a> ·
+          &copy; {{ current_year }} kevsrobots
+        </p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // "Show" buttons beside password fields.
+    document.querySelectorAll('[data-reveal]').forEach(function (button) {
+      var field = document.getElementById(button.getAttribute('data-reveal'));
+      button.addEventListener('click', function () {
+        var hidden = field.type === 'password';
+        field.type = hidden ? 'text' : 'password';
+        button.textContent = hidden ? 'Hide' : 'Show';
+        button.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+      });
+    });
+  </script>
+</body>
+</html>

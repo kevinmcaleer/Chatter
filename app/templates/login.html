@@ -1,71 +1,32 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
 
-{% block title %}Login{% endblock %}
+{% block title %}Sign in{% endblock %}
 
 {% block content %}
-<div class="container my-5">
-  <div class="row justify-content-center">
-    <div class="col-lg-5 col-md-7">
-      <div class="card shadow-sm">
-        <div class="card-header bg-card-blue text-white">
-          <h4 class="mb-0"><i class="fas fa-sign-in-alt me-3"></i>Login</h4>
-        </div>
-        <div class="card-body p-4">
-          {% if error %}
-          <div class="alert alert-danger" role="alert">
-            <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
-          </div>
-          {% endif %}
+<h1>Sign in</h1>
+<p class="kr-sub">Use your kevsrobots account.</p>
 
-          <form method="post">
-            {% if return_to %}
-            <input type="hidden" name="return_to" value="{{ return_to }}">
-            {% endif %}
+{% if notice %}<div class="kr-alert kr-alert-ok" role="status">{{ notice }}</div>{% endif %}
+{% if error %}<div class="kr-alert kr-alert-error" role="alert">{{ error }}</div>{% endif %}
 
-            <div class="mb-3">
-              <label for="username" class="form-label fw-bold">Username or Email</label>
-              <input
-                type="text"
-                class="form-control form-control-lg"
-                id="username"
-                name="username"
-                required
-                autocomplete="username"
-                placeholder="Enter your username or email"
-              >
-            </div>
+<form method="post" action="/login" class="kr-form">
+  {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
 
-            <div class="mb-3">
-              <label for="password" class="form-label fw-bold">Password</label>
-              <input
-                type="password"
-                class="form-control form-control-lg"
-                id="password"
-                name="password"
-                required
-                autocomplete="current-password"
-                placeholder="Enter your password"
-              >
-            </div>
+  <div class="kr-field">
+    <label for="username">Username or email</label>
+    <input type="text" id="username" name="username" required autofocus autocomplete="username" autocapitalize="none" spellcheck="false">
+  </div>
 
-            <div class="d-grid gap-2">
-              <button type="submit" class="btn btn-primary btn-lg">
-                <i class="fas fa-sign-in-alt me-2"></i>Login
-              </button>
-            </div>
-          </form>
-
-          <div class="mt-3 text-center">
-            <a href="/reset-password" class="text-muted text-decoration-none">
-              <i class="fa-solid fa-key me-1"></i>Forgot your password?
-            </a>
-          </div>
-        </div>
-        <div class="card-footer bg-light text-center">
-          <p class="mb-0">Don't have an account? <a href="/register" class="kevred text-decoration-none fw-bold">Register here</a></p>
-        </div>
-      </div>
+  <div class="kr-field">
+    <div class="kr-label-row"><label for="password">Password</label><a href="/reset-password">Forgot password?</a></div>
+    <div class="kr-input">
+      <input type="password" id="password" name="password" required autocomplete="current-password">
+      <button type="button" class="kr-reveal" data-reveal="password" aria-pressed="false" aria-label="Show password">Show</button>
     </div>
   </div>
-</div>
+
+  <button type="submit" class="kr-btn">Sign in</button>
+</form>
+
+<p class="kr-foot">New to kevsrobots? <a href="/register{% if return_to %}?{{ {'return_to': return_to} | urlencode }}{% endif %}">Create an account</a></p>
 {% endblock %}

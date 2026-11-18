@@ -142,18 +142,26 @@
 - `POST /admin/force-password-reset/{user_id}` - Force password reset (admin-only)
 - `GET /force-password-reset` - Show forced password reset form
 - `POST /force-password-reset` - Process forced password reset
+- `GET /reset-password` - Show the reset-code form ("Forgot password?" on the sign-in page)
+- `POST /reset-password` - Set a new password with an admin-issued reset code, then back to `/login?reset=done`
 
 ### API Routes (for backward compatibility)
 - `POST /api/register` - JSON API endpoint (deprecated)
 - `POST /api/login` - JSON API endpoint (OAuth2)
 
 ### Templates
-- `base.html` - Base template with navigation and footer
+- `auth_base.html` + `_suite_style.html` - The shared kevsrobots sign-in layout (#81): suite tokens, Plus Jakarta Sans and Oswald, light and dark, brand panel on wide screens. Used by login, register, reset_password and force_password_reset.
+- `base.html` - Base template with navigation and footer (account, admin, profile)
 - `register.html` - Registration form
 - `login.html` - Login form
 - `account.html` - Account management page
 - `admin.html` - Admin panel with user management
 - `force_password_reset.html` - Forced password reset form
+
+### One sign-in for the kevsrobots suite (#81)
+Every kevsrobots app (kevsrobots.com, Projects, BetterCAD, later Snakie) signs people in on these pages.
+- `return_to` (sanitised as before) also picks the "Continue to <app>" chip: `app/suite.py` maps the host to BetterCAD, Snakie, Projects or kevsrobots.com.
+- `ACCOUNTS_URL` (e.g. `https://accounts.kevsrobots.com`): when set, `GET /login`, `/register` and `/reset-password` on any other host (chatter.kevsrobots.com) redirect (302) to the same path and query there. Unset, nothing moves. chatter.kevsrobots.com stays the API host for likes, comments, follows and the other services.
 
 ## Testing Requirements
 - All endpoints must have unit tests

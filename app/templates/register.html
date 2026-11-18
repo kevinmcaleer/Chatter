@@ -1,118 +1,54 @@
-{% extends "base.html" %}
+{% extends "auth_base.html" %}
 
-{% block title %}Register{% endblock %}
+{% block title %}Create an account{% endblock %}
 
 {% block content %}
-<div class="container my-5">
-  <div class="row justify-content-center">
-    <div class="col-lg-6 col-md-8">
-      <div class="card shadow-sm">
-        <div class="card-header bg-card-green text-white">
-          <h4 class="mb-0"><i class="fas fa-user-plus me-3"></i>Create Account</h4>
-        </div>
-        <div class="card-body p-4">
-          {% if error %}
-          <div class="alert alert-danger" role="alert">
-            <i class="fas fa-exclamation-circle me-2"></i>{{ error }}
-          </div>
-          {% endif %}
+<h1>Create your account</h1>
+<p class="kr-sub">One account for Learn, Projects, Snakie and BetterCAD.</p>
 
-          <form method="post">
-            {% if return_to %}
-            <input type="hidden" name="return_to" value="{{ return_to }}">
-            {% endif %}
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label for="firstname" class="form-label fw-bold">First Name *</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="firstname"
-                  name="firstname"
-                  required
-                  autocomplete="given-name"
-                  placeholder="Enter your first name"
-                >
-              </div>
+{% if error %}<div class="kr-alert kr-alert-error" role="alert">{{ error }}</div>{% endif %}
 
-              <div class="col-md-6 mb-3">
-                <label for="lastname" class="form-label fw-bold">Last Name *</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="lastname"
-                  name="lastname"
-                  required
-                  autocomplete="family-name"
-                  placeholder="Enter your last name"
-                >
-              </div>
-            </div>
+<form method="post" action="/register" class="kr-form">
+  {% if return_to %}<input type="hidden" name="return_to" value="{{ return_to }}">{% endif %}
 
-            <div class="mb-3">
-              <label for="username" class="form-label fw-bold">Username *</label>
-              <input
-                type="text"
-                class="form-control"
-                id="username"
-                name="username"
-                required
-                autocomplete="username"
-                placeholder="Choose a username"
-              >
-            </div>
-
-            <div class="mb-3">
-              <label for="email" class="form-label fw-bold">Email Address *</label>
-              <input
-                type="email"
-                class="form-control"
-                id="email"
-                name="email"
-                required
-                autocomplete="email"
-                placeholder="your.email@example.com"
-              >
-            </div>
-
-            <div class="mb-3">
-              <label for="date_of_birth" class="form-label fw-bold">Date of Birth <small class="text-muted">(Optional)</small></label>
-              <input
-                type="date"
-                class="form-control"
-                id="date_of_birth"
-                name="date_of_birth"
-                autocomplete="bday"
-              >
-            </div>
-
-            <div class="mb-3">
-              <label for="password" class="form-label fw-bold">Password *</label>
-              <input
-                type="password"
-                class="form-control"
-                id="password"
-                name="password"
-                required
-                autocomplete="new-password"
-                placeholder="Choose a strong password"
-                minlength="8"
-              >
-              <small class="form-text text-muted">Minimum 8 characters with uppercase, lowercase, and numbers</small>
-            </div>
-
-            <div class="d-grid gap-2">
-              <button type="submit" class="btn btn-success btn-lg">
-                <i class="fas fa-user-plus me-2"></i>Create Account
-              </button>
-            </div>
-          </form>
-        </div>
-        <div class="card-footer bg-light text-center">
-          <p class="mb-0">Already have an account? <a href="/login{% if return_to %}?return_to={{ return_to }}{% endif %}" class="kevred text-decoration-none fw-bold">Login here</a></p>
-        </div>
-      </div>
+  <div class="kr-row2">
+    <div class="kr-field">
+      <label for="firstname">First name</label>
+      <input type="text" id="firstname" name="firstname" required autocomplete="given-name">
+    </div>
+    <div class="kr-field">
+      <label for="lastname">Last name</label>
+      <input type="text" id="lastname" name="lastname" required autocomplete="family-name">
     </div>
   </div>
-</div>
+
+  <div class="kr-field">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" required autocomplete="username" autocapitalize="none" spellcheck="false">
+    <span class="kr-hint">Shown on your comments and projects.</span>
+  </div>
+
+  <div class="kr-field">
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" required autocomplete="email">
+  </div>
+
+  <div class="kr-field">
+    <label for="date_of_birth">Date of birth <span class="kr-optional">(optional)</span></label>
+    <input type="date" id="date_of_birth" name="date_of_birth" autocomplete="bday">
+  </div>
+
+  <div class="kr-field">
+    <label for="password">Password</label>
+    <div class="kr-input">
+      <input type="password" id="password" name="password" required minlength="8" autocomplete="new-password" aria-describedby="password-hint">
+      <button type="button" class="kr-reveal" data-reveal="password" aria-pressed="false" aria-label="Show password">Show</button>
+    </div>
+    <span class="kr-hint" id="password-hint">At least 8 characters, with upper and lower case letters and a number.</span>
+  </div>
+
+  <button type="submit" class="kr-btn">Create account</button>
+</form>
+
+<p class="kr-foot">Already have an account? <a href="/login{% if return_to %}?{{ {'return_to': return_to} | urlencode }}{% endif %}">Sign in</a></p>
 {% endblock %}

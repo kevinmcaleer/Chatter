@@ -16,6 +16,8 @@ from fastapi import Header, Cookie
 from typing import Optional
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from urllib.parse import urlencode
+from .suite import app_for_return_to, redirect_to_accounts
 import os
 
 router = APIRouter()
@@ -34,6 +36,7 @@ def get_template_context(request, **kwargs):
     context = {
         "request": request,
         "current_year": datetime.now().year,
+        "continue_app": app_for_return_to(kwargs.get("return_to")),
     }
     context.update(kwargs)
     return context
@@ -300,42 +303,65 @@ def get_user_activity_api(current_user: User = Depends(get_current_user), sessio
         "likes_count": likes_count
     }
 
-@router.post("/api/reset-password")
-def reset_password_api(reset_data: PasswordReset, session: Session = Depends(get_session)):
-    """Reset password using a reset code"""
+def apply_reset_code(session: Session, username: str, reset_code: str, new_password: str) -> Optional[str]:
+    """Set a new password with an admin-issued reset code. Returns the reason it failed, or None."""
     from .utils import hash_password
-    from datetime import datetime
 
-    # Find user by username
-    user = session.exec(select(User).where(User.username == reset_data.username)).first()
-
+    user = session.exec(select(User).where(User.username == username)).first()
     if not user:
-        raise HTTPException(status_code=400, detail="Invalid username or reset code")
-
-    # Check if user has a reset code
+        return "Invalid username or reset code"
     if not user.password_reset_code:
-        raise HTTPException(status_code=400, detail="No reset code has been generated for this account")
-
-    # Check if code matches (case-insensitive)
-    if user.password_reset_code.upper() != reset_data.reset_code.upper():
-        raise HTTPException(status_code=400, detail="Invalid reset code")
-
-    # Check if code has expired
+        return "No reset code has been generated for this account"
+    if user.password_reset_code.upper() != reset_code.strip().upper():
+        return "Invalid reset code"
     if user.code_expires_at < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Reset code has expired")
+        return "Reset code has expired"
+    if len(new_password) < 8:
+        return "Password must be at least 8 characters long"
 
-    # Validate password length
-    if len(reset_data.new_password) < 8:
-        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
-
-    # Update password and clear reset code
-    user.hashed_password = hash_password(reset_data.new_password)
+    user.hashed_password = hash_password(new_password)
     user.password_reset_code = None
     user.code_expires_at = None
     session.add(user)
     session.commit()
+    return None
 
+
+@router.post("/api/reset-password")
+def reset_password_api(reset_data: PasswordReset, session: Session = Depends(get_session)):
+    """Reset password using a reset code"""
+    problem = apply_reset_code(session, reset_data.username, reset_data.reset_code, reset_data.new_password)
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
     return {"message": "Password reset successfully"}
+
+
+@router.get("/reset-password")
+def reset_password_page(request: Request, username: str = None):
+    """The reset-code form that "Forgot password?" on the sign-in page opens."""
+    moved = redirect_to_accounts(request)
+    if moved:
+        return moved
+    return templates.TemplateResponse("reset_password.html", get_template_context(request, username=username))
+
+
+@router.post("/reset-password")
+def reset_password_form(
+    request: Request,
+    username: str = Form(...),
+    reset_code: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    if new_password != confirm_password:
+        problem = "Passwords do not match"
+    else:
+        problem = apply_reset_code(session, username, reset_code, new_password)
+    if problem:
+        context = get_template_context(request, error=problem, username=username)
+        return templates.TemplateResponse("reset_password.html", context)
+    return RedirectResponse(f"/login?{urlencode({'reset': 'done'})}", status_code=303)
 
 # Admin API Endpoints
 
@@ -433,6 +459,9 @@ def logout(redirect: bool = True):
 
 @router.get("/register")
 def register_page(request: Request, return_to: str = None):
+    moved = redirect_to_accounts(request)
+    if moved:
+        return moved
     # Sanitize return_to to prevent redirect loops
     safe_return_to = sanitize_return_to(return_to)
     context = get_template_context(request, return_to=safe_return_to)
@@ -558,16 +587,20 @@ def sanitize_return_to(return_to: Optional[str]) -> Optional[str]:
 
 
 @router.get("/login")
-def login_page(request: Request, return_to: str = None, error: str = None):
+def login_page(request: Request, return_to: str = None, error: str = None, reset: str = None):
+    moved = redirect_to_accounts(request)
+    if moved:
+        return moved
     # Convert error codes to user-friendly messages
     error_message = None
     if error == "session_expired":
-        error_message = "Your session has expired. Please login again."
+        error_message = "Your session has expired. Sign in again."
 
     # Sanitize return_to to prevent redirect loops
     safe_return_to = sanitize_return_to(return_to)
 
-    context = get_template_context(request, return_to=safe_return_to, error=error_message)
+    notice = "Your password has been changed. Sign in with your new password." if reset == "done" else None
+    context = get_template_context(request, return_to=safe_return_to, error=error_message, notice=notice)
     return templates.TemplateResponse("login.html", context)
 
 
