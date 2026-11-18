@@ -50,8 +50,9 @@ CREATE TABLE IF NOT EXISTS oauth_refresh_tokens (
 );
 CREATE INDEX IF NOT EXISTS ix_oauth_refresh_tokens_grant_id ON oauth_refresh_tokens(grant_id);
 
-INSERT INTO oauth_clients (client_id, name, redirect_uris, scopes) VALUES
-    ('snakie', 'Snakie', 'https://app.snakie.org/auth/callback http://127.0.0.1/callback', 'profile projects:read projects:write')
+-- created_at is given explicitly: if Chatter created the table on startup, the column has no database default.
+INSERT INTO oauth_clients (client_id, name, redirect_uris, scopes, created_at) VALUES
+    ('snakie', 'Snakie', 'https://app.snakie.org/auth/callback http://127.0.0.1/callback', 'profile projects:read projects:write', CURRENT_TIMESTAMP)
 ON CONFLICT (client_id) DO NOTHING;
 
 COMMIT;

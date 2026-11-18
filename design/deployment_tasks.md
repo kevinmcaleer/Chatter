@@ -840,6 +840,6 @@ shares its network and runs a token (dashboard-managed) tunnel, so the hostname 
 - [ ] Build, push and deploy the image as above (`docker pull`, then `docker compose -f docker-compose.prod.yml up -d` on each Pi).
 - [ ] Create the tables and the `snakie` client once (all instances share one database). From one Pi, in ClusteredPi `stacks/chatter`:
   `docker compose -f docker-compose.prod.yml exec chatter python3 -c "import os, psycopg2; c = psycopg2.connect(os.environ['DATABASE_URL']); c.cursor().execute(open('migrations/versions/020_add_oauth_sign_in.sql').read()); c.commit()"`.
-  Safe to run twice. Chatter also tries to create the tables and the client on startup, but don't rely on it: `SQLModel.metadata.create_all` fails on the `projects.primary_image_id → project_image` foreign key typo (it should be `project_images`), at least on SQLite.
+  Safe to run twice. Chatter usually creates the tables and the `snakie` client itself on startup, so first check: `docker compose -f docker-compose.prod.yml exec chatter python3 -c "import os, psycopg2; c = psycopg2.connect(os.environ['DATABASE_URL']); cur = c.cursor(); cur.execute('select client_id from oauth_clients'); print(cur.fetchall())"`. If it lists `snakie`, skip this step.
 - [ ] Check `https://accounts.kevsrobots.com/oauth/authorize?client_id=snakie` shows a kevsrobots page (an error about the request is expected; "isn't registered" means the client is missing).
 - [ ] Nothing changes in Cloudflare: `/oauth/*` is served on the hostnames that already exist.
