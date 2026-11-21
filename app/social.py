@@ -20,7 +20,7 @@ from sqlmodel import Session, select
 
 from .auth import get_current_user, get_optional_user
 from .database import get_session
-from .models import Like, User, UserPrivacy
+from .models import Comment, Like, User, UserPrivacy
 
 router = APIRouter()
 
@@ -34,6 +34,7 @@ class LikeStatusBatchRequest(BaseModel):
 class LikeStatus(BaseModel):
     like_count: int
     user_has_liked: bool
+    comment_count: int = 0
 
 
 class LikeStatusBatchResponse(BaseModel):
@@ -67,6 +68,16 @@ def _like_counts(session: Session, keys: list[str]) -> dict[str, int]:
     return {url: int(count) for url, count in rows}
 
 
+def _comment_counts(session: Session, keys: list[str]) -> dict[str, int]:
+    """Visible comments (not hidden or removed), replies included."""
+    rows = session.exec(
+        select(Comment.url, func.count(Comment.id))
+        .where(Comment.url.in_(keys), Comment.is_hidden == False, Comment.is_removed == False)  # noqa: E712
+        .group_by(Comment.url)
+    ).all()
+    return {url: int(count) for url, count in rows}
+
+
 def _liked_by(session: Session, user: Optional[User], keys: list[str]) -> set[str]:
     if user is None:
         return set()
@@ -81,13 +92,19 @@ def like_status_batch(
     session: Session = Depends(get_session),
     user: Optional[User] = Depends(get_optional_user),
 ):
-    """Like count and "have I liked it" for up to 50 URLs. Answers are keyed
-    by the URL exactly as sent. Anonymous callers get user_has_liked=false."""
+    """Like count, "have I liked it" and comment count for up to 50 URLs.
+    Answers are keyed by the URL exactly as sent. Anonymous callers get
+    user_has_liked=false."""
     keys = list({_key(u) for u in body.urls})
-    counts = _like_counts(session, keys)
+    likes = _like_counts(session, keys)
+    comments = _comment_counts(session, keys)
     mine = _liked_by(session, user, keys)
     return LikeStatusBatchResponse(items={
-        url: LikeStatus(like_count=counts.get(_key(url), 0), user_has_liked=_key(url) in mine)
+        url: LikeStatus(
+            like_count=likes.get(_key(url), 0),
+            user_has_liked=_key(url) in mine,
+            comment_count=comments.get(_key(url), 0),
+        )
         for url in body.urls
     })
 

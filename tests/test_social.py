@@ -10,7 +10,7 @@ os.environ["TESTING"] = "true"
 
 from app.database import get_session  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Like, User, UserPrivacy  # noqa: E402
+from app.models import Comment, Like, User, UserPrivacy  # noqa: E402
 from app.utils import create_access_token, hash_password  # noqa: E402
 
 PASSWORD = "TestPass123"
@@ -23,7 +23,7 @@ def session_fixture():
     )
     # Only the tables these endpoints touch: the full metadata has a broken
     # project_image foreign key that SQLite's create_all trips over.
-    tables = [User.__table__, Like.__table__, UserPrivacy.__table__]
+    tables = [User.__table__, Like.__table__, UserPrivacy.__table__, Comment.__table__]
     SQLModel.metadata.create_all(engine, tables=tables)
     with Session(engine) as session:
         yield session
@@ -73,9 +73,9 @@ def test_batch_counts_for_anonymous(client, people):
     r = client.post("/interact/like-status/batch", json={"urls": URLS})
     assert r.status_code == 200, r.text
     items = r.json()["items"]
-    assert items["projects/view.html?id=1"] == {"like_count": 2, "user_has_liked": False}
-    assert items["/projects/view.html?id=2"] == {"like_count": 1, "user_has_liked": False}
-    assert items["projects/view.html?id=3"] == {"like_count": 0, "user_has_liked": False}
+    assert items["projects/view.html?id=1"] == {"like_count": 2, "user_has_liked": False, "comment_count": 0}
+    assert items["/projects/view.html?id=2"] == {"like_count": 1, "user_has_liked": False, "comment_count": 0}
+    assert items["projects/view.html?id=3"] == {"like_count": 0, "user_has_liked": False, "comment_count": 0}
 
 
 def test_batch_marks_my_likes(client, people):
@@ -83,6 +83,17 @@ def test_batch_marks_my_likes(client, people):
     items = r.json()["items"]
     assert items["projects/view.html?id=1"]["user_has_liked"] is True
     assert items["/projects/view.html?id=2"]["user_has_liked"] is False
+
+
+def test_batch_counts_visible_comments(client, session, people):
+    alice, _ = people
+    url = "projects/view.html?id=1"
+    session.add(Comment(url=url, content="Nice build", user_id=alice.id))
+    session.add(Comment(url=url, content="Spam", user_id=alice.id, is_hidden=True))
+    session.add(Comment(url=url, content="Gone", user_id=alice.id, is_removed=True))
+    session.commit()
+    items = client.post("/interact/like-status/batch", json={"urls": [url]}).json()["items"]
+    assert items[url]["comment_count"] == 1
 
 
 def test_batch_limits(client):

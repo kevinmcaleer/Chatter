@@ -298,7 +298,7 @@ Under `/interact`. Used by the shared project card and the profile page on kevsr
 
 | Method | Path | What it does |
 |--------|------|--------------|
-| POST | `/interact/like-status/batch` | Body `{"urls": [...]}`, 1 to 50 URLs (leading slash optional). Returns `{"items": {"<url as sent>": {"like_count": n, "user_has_liked": bool}}}`. Anonymous callers get `user_has_liked: false`. |
+| POST | `/interact/like-status/batch` | Body `{"urls": [...]}`, 1 to 50 URLs (leading slash optional). Returns `{"items": {"<url as sent>": {"like_count": n, "user_has_liked": bool, "comment_count": n}}}`; comments count visible ones, replies included. Anonymous callers get `user_has_liked: false`. |
 | GET | `/interact/users/{username}/liked` | `prefix` (e.g. `projects/`), `limit` (1-100, default 24), `offset`. URLs they liked, newest first. 403 unless they made their likes public or it is their own; 404 for an unknown or inactive user. |
 | GET | `/interact/me/privacy` | Sign-in required. `{"likes_public": bool}`. |
 | PUT | `/interact/me/privacy` | Sign-in required. Body `{"likes_public": bool}`: show or hide the Liked tab on your profile. |
