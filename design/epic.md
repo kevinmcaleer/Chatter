@@ -887,3 +887,15 @@ The auto-generated `README.md` includes:
 - File download counts
 - User engagement (likes, comments on projects)
 - Search and filter usage analytics
+
+---
+
+# Project cards and public profiles on kevsrobots (showcase)
+
+kevsrobots.com shows the same project card everywhere (homepage showcase, profiles, gallery). Each card has a heart, so Chatter answers like counts for a whole grid at once instead of one request per card.
+
+- **Batch like status** (`POST /interact/like-status/batch`): up to 50 URLs, one grouped count query and one "which of these did I like" query. Answers are keyed by the URL as the page sent it.
+- **Liked tab**: a profile can list the projects someone liked (`GET /interact/users/{username}/liked?prefix=projects/`). Likes stay private unless the person turns on "Show projects I like" (`PUT /interact/me/privacy`); they can always see their own.
+- **user_privacy table** (migration 021): one row per user who changed a default. It is a separate table, not a column on `users`, so a new image works before the migration runs (startup `create_all` makes it).
+
+Follows are not in Chatter: they live in kevsrobots.com's projects-api (`/api/users/{username}/follow`), keyed by Chatter username.

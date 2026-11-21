@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from .database import create_db_and_tables
 from .auth import router as auth_router
 from .likes_comments import router as lc_router
+from .social import router as social_router
 from .accounts import router as accounts_router
 from .page_views import router as page_views_router
 from .profile import router as profile_router
@@ -74,6 +75,7 @@ app.add_middleware(
 )
 
 app.include_router(lc_router, prefix="/interact")
+app.include_router(social_router, prefix="/interact")
 app.include_router(auth_router)
 app.include_router(accounts_router, prefix="/accounts")
 app.include_router(page_views_router, prefix="/analytics")

@@ -843,3 +843,8 @@ shares its network and runs a token (dashboard-managed) tunnel, so the hostname 
   Safe to run twice. Chatter usually creates the tables and the `snakie` client itself on startup, so first check: `docker compose exec chatter python3 -c "import os, psycopg2; c = psycopg2.connect(os.environ['DATABASE_URL']); cur = c.cursor(); cur.execute('select client_id from oauth_clients'); print(cur.fetchall())"`. If it lists `snakie`, skip this step.
 - [ ] Check `https://accounts.kevsrobots.com/oauth/authorize?client_id=snakie` shows a kevsrobots page (an error about the request is expected; "isn't registered" means the client is missing).
 - [ ] Nothing changes in Cloudflare: `/oauth/*` is served on the hostnames that already exist.
+
+## Project cards and public profiles (kevsrobots showcase)
+
+- [ ] Build, push and deploy the image as above. Order doesn't matter against kevsrobots.com: the site hides the Liked tab and falls back to one like call per card if these endpoints aren't there yet.
+- [ ] Nothing to run by hand: startup creates `user_privacy`. Optional, for the faster "liked, newest first" index and the schema_version row, run `migrations/versions/021_add_user_privacy.sql` once from one Pi the same way as 020. Safe to run twice.

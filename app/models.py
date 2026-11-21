@@ -55,6 +55,16 @@ class Like(SQLModel, table=True):
     user: Optional["User"] = Relationship(back_populates="likes")
 
 
+class UserPrivacy(SQLModel, table=True):
+    """Per-user sharing choices (migration 021). One row per user who has
+    changed a default; no row means every default applies."""
+    __tablename__ = "user_privacy"
+
+    user_id: int = Field(foreign_key="users.id", primary_key=True)
+    likes_public: bool = Field(default=False)  # Liked tab on the kevsrobots profile
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Comment(SQLModel, table=True):
     __tablename__ = "comments"  # Plural table name (migrated from 'comment')
 
